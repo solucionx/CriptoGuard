@@ -1,6 +1,6 @@
 {
   "name": "crypto-guard-desktop",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Crypto Guard — criptografia local auditável de arquivos e pastas para Windows. Desenvolvido pela Solucionx.",
   "main": "src/main.js",
   "private": true,
@@ -12,7 +12,7 @@
     "start": "electron .",
     "dev": "electron .",
     "build:engine:win": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-engine.ps1",
-    "build:win": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-portable.ps1",
+    "build:win": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-installer.ps1",
     "dist:win": "npm run build:win",
     "check:js": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
     "test:python": "python -m unittest discover -s tests -v",
@@ -26,7 +26,7 @@
   "build": {
     "appId": "com.solucionx.cryptoguard",
     "productName": "Crypto Guard",
-    "artifactName": "CryptoGuard.${ext}",
+    "artifactName": "CryptoGuard-Setup.${ext}",
     "files": [
       "src/**/*",
       "package.json"
@@ -45,7 +45,7 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
@@ -61,12 +61,29 @@
     "directories": {
       "output": "release"
     },
-    "portable": {
-      "artifactName": "CryptoGuard.exe",
-      "requestExecutionLevel": "user",
-      "unpackDirName": false
+    "afterPack": "scripts/after-pack.mjs",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Crypto Guard",
+      "artifactName": "CryptoGuard-Setup.exe",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     },
-    "afterPack": "scripts/after-pack.mjs"
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "solucionx",
+        "repo": "CryptoGuard",
+        "releaseType": "release"
+      }
+    ]
   },
   "repository": {
     "type": "git",
@@ -78,5 +95,8 @@
   "homepage": "https://github.com/solucionx/CryptoGuard#readme",
   "engines": {
     "node": ">=24.20.0 <25"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   }
 }

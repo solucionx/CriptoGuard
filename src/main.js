@@ -4,6 +4,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const { autoUpdater } = require('electron-updater');
 
 
 const APP_ID = 'com.solucionx.cryptoguard';
@@ -20,6 +21,99 @@ const ICON_PATH = app.isPackaged
   ? path.join(process.resourcesPath, 'app-icon.png')
   : path.join(__dirname, 'assets', 'app-icon.png');
 const activeJobs = new Map();
+let updateReadyToInstall = false;
+let updateInstallScheduled = false;
+let updateCheckInFlight = false;
+
+function broadcastUpdateStatus(payload) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send('update-status', payload);
+    }
+  }
+}
+
+function updaterSupported() {
+  return app.isPackaged && process.platform === 'win32' && !process.argv.includes('--crypto-guard-elevated');
+}
+
+function installDownloadedUpdateWhenSafe() {
+  if (!updateReadyToInstall || updateInstallScheduled || activeJobs.size > 0) return false;
+  updateInstallScheduled = true;
+  broadcastUpdateStatus({ status: 'installing', version: null });
+  setTimeout(() => {
+    try {
+      // isSilent=true; isForceRunAfter=true. A instalacao só é disparada quando
+      // nenhuma operação criptografica está ativa.
+      autoUpdater.quitAndInstall(true, true);
+    } catch (err) {
+      updateInstallScheduled = false;
+      broadcastUpdateStatus({ status: 'error', message: `Falha ao iniciar a atualização: ${err.message}` });
+    }
+  }, 900);
+  return true;
+}
+
+async function checkForUpdates() {
+  if (!updaterSupported()) {
+    return { ok: false, reason: app.isPackaged ? 'unsupported-session' : 'development' };
+  }
+  if (updateCheckInFlight) return { ok: true, alreadyRunning: true };
+  updateCheckInFlight = true;
+  try {
+    await autoUpdater.checkForUpdates();
+    return { ok: true };
+  } catch (err) {
+    // Falhas de rede/update nunca impedem o aplicativo de iniciar ou criptografar.
+    broadcastUpdateStatus({ status: 'error', message: 'Não foi possível verificar atualizações agora.' });
+    return { ok: false, reason: err.message };
+  } finally {
+    updateCheckInFlight = false;
+  }
+}
+
+function configureAutoUpdater() {
+  if (!updaterSupported()) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.allowDowngrade = false;
+  // O Crypto Guard publica instalador NSIS completo, nunca nsis-web.
+  autoUpdater.disableWebInstaller = true;
+  autoUpdater.fullChangelog = false;
+
+  autoUpdater.on('checking-for-update', () => {
+    broadcastUpdateStatus({ status: 'checking' });
+  });
+  autoUpdater.on('update-available', (info) => {
+    broadcastUpdateStatus({ status: 'available', version: info?.version || null });
+  });
+  autoUpdater.on('update-not-available', (info) => {
+    broadcastUpdateStatus({ status: 'current', version: info?.version || app.getVersion() });
+  });
+  autoUpdater.on('download-progress', (progress) => {
+    broadcastUpdateStatus({
+      status: 'downloading',
+      percent: Number(progress?.percent || 0),
+      transferred: Number(progress?.transferred || 0),
+      total: Number(progress?.total || 0),
+      bytesPerSecond: Number(progress?.bytesPerSecond || 0)
+    });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReadyToInstall = true;
+    broadcastUpdateStatus({ status: 'downloaded', version: info?.version || null, waitingForCrypto: activeJobs.size > 0 });
+    installDownloadedUpdateWhenSafe();
+  });
+  autoUpdater.on('error', (err) => {
+    broadcastUpdateStatus({ status: 'error', message: 'Não foi possível verificar ou baixar a atualização.' });
+    if (!app.isPackaged) console.error('[Crypto Guard updater]', err);
+  });
+
+  // A janela abre primeiro; a verificação começa logo depois, sem bloquear a UI.
+  setTimeout(() => { void checkForUpdates(); }, 2500);
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -139,8 +233,8 @@ function launchElevatedCopy() {
     if (process.platform !== 'win32') return resolve({ ok: false, reason: 'unsupported-platform' });
     if (isProcessElevated()) return resolve({ ok: true, alreadyElevated: true });
 
-    // No alvo portable, process.execPath aponta para a cópia extraída em TEMP.
-    // PORTABLE_EXECUTABLE_FILE aponta para o CryptoGuard.exe baixado pelo usuário.
+    // Na build NSIS instalada, process.execPath aponta para o executável instalado.
+    // Mantemos o fallback PORTABLE_EXECUTABLE_FILE apenas para compatibilidade com builds antigas.
     const executable = (app.isPackaged && process.env.PORTABLE_EXECUTABLE_FILE)
       ? process.env.PORTABLE_EXECUTABLE_FILE
       : process.execPath;
@@ -227,11 +321,11 @@ function spawnBackend(command, args, payload, onProgress, { retryable = false, o
 
 function runBridge(payload, onProgress) {
   // Na versão distribuída não há Python externo: o engine PyInstaller viaja
-  // dentro do CryptoGuard.exe portátil e é extraído pelo próprio Electron.
+  // nos recursos do aplicativo instalado e é carregado pelo Electron.
   if (app.isPackaged) {
     const engine = enginePath();
     if (!fs.existsSync(engine)) {
-      return Promise.reject(new Error('Motor criptográfico interno não encontrado. Rebaixe o CryptoGuard.exe.'));
+      return Promise.reject(new Error('Motor criptográfico interno não encontrado. Reinstale o Crypto Guard pela Release oficial.'));
     }
     return spawnBackend(engine, [], payload, onProgress);
   }
@@ -265,11 +359,8 @@ function statInfo(p) {
 }
 
 function notify(title, body) {
-  // Um executável portátil não instala o atalho/AUMID necessário para um toast
-  // do Windows com identidade confiável. Evitamos o rótulo electron.app.Electron;
-  // a interface já exibe seu próprio toast/modal de conclusão.
-  const isWindowsPortable = process.platform === 'win32' && !!process.env.PORTABLE_EXECUTABLE_FILE;
-  if (process.platform === 'win32' && (!app.isPackaged || isWindowsPortable)) return;
+  // Na build NSIS instalada o Windows recebe AppUserModelID/atalho do Crypto Guard.
+  if (!app.isPackaged) return;
   if (Notification.isSupported()) new Notification({ title, body, icon: ICON_PATH }).show();
 }
 
@@ -292,7 +383,8 @@ ipcMain.handle('pick-encrypted-files', async () => {
   return canceled ? [] : filePaths.map(statInfo);
 });
 ipcMain.handle('paths-info', async (_event, paths) => Array.isArray(paths) ? paths.slice(0, 500).map(statInfo) : []);
-ipcMain.handle('app-info', async () => ({ version: app.getVersion(), platform: process.platform, elevated: isProcessElevated(), packaged: app.isPackaged, developer: DEVELOPER }));
+ipcMain.handle('app-info', async () => ({ version: app.getVersion(), platform: process.platform, elevated: isProcessElevated(), packaged: app.isPackaged, developer: DEVELOPER, autoUpdate: updaterSupported() }));
+ipcMain.handle('update-check', async () => checkForUpdates());
 ipcMain.handle('request-elevation', async () => launchElevatedCopy());
 
 ipcMain.handle('crypto-cancel', async (event) => {
@@ -368,6 +460,7 @@ ipcMain.handle('crypto-run', async (event, payload) => {
   } finally {
     activeJobs.delete(event.sender.id);
     try { fs.unlinkSync(cancelFile); } catch { /* arquivo pode não existir */ }
+    installDownloadedUpdateWhenSafe();
   }
 
   const cancelled = session.cancelRequested || results.some((r) => r.cancelled);
@@ -385,6 +478,7 @@ app.whenReady().then(() => {
   electronSession.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   buildMenu();
   createWindow();
+  configureAutoUpdater();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

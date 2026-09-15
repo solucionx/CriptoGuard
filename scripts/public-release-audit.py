@@ -72,6 +72,17 @@ try:
         errors.append("@electron/fuses deve estar fixado na versão revisada 2.1.3")
     if package.get("build", {}).get("afterPack") != "scripts/after-pack.mjs":
         errors.append("hook afterPack de Electron Fuses ausente")
+    if package.get("dependencies", {}).get("electron-updater") != "6.8.9":
+        errors.append("electron-updater deve estar fixado em 6.8.9")
+    build = package.get("build", {})
+    targets = build.get("win", {}).get("target", [])
+    target_names = [item.get("target") if isinstance(item, dict) else item for item in targets]
+    if "nsis" not in target_names:
+        errors.append("target NSIS obrigatorio para auto atualização no Windows")
+    publish = build.get("publish", [])
+    gh = next((item for item in publish if isinstance(item, dict) and item.get("provider") == "github"), None)
+    if not gh or gh.get("owner") != "solucionx" or gh.get("repo") != "CryptoGuard":
+        errors.append("provider de atualização GitHub deve apontar explicitamente para solucionx/CryptoGuard")
 except Exception as exc:
     errors.append(f"package.json inválido: {exc}")
 
@@ -84,6 +95,11 @@ for required_snippet in ("contextIsolation: true", "nodeIntegration: false", "sa
         errors.append(f"hardening Electron ausente: {required_snippet}")
 if ".loadURL(" in main_js:
     warnings.append("main.js contém loadURL(); revise qualquer conteúdo remoto antes da publicação")
+for updater_snippet in ("allowPrerelease = false", "allowDowngrade = false", "disableWebInstaller = true"):
+    if updater_snippet not in main_js:
+        errors.append(f"hardening do atualizador ausente: {updater_snippet}")
+if "GH_TOKEN" in main_js or "github_pat_" in main_js:
+    errors.append("token GitHub nao pode existir no aplicativo")
 
 
 # GitHub Actions: third-party/reusable actions must be pinned to a 40-char commit SHA.

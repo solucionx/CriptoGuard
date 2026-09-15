@@ -28,7 +28,7 @@ Antes de mudar a visibilidade para **Public**, execute `PREPARE_PUBLIC_REPO.bat`
 
 - [ ] A tag `vX.Y.Z` corresponde ao `package.json`.
 - [ ] Release é produzida exclusivamente pelo workflow oficial em runner Windows.
-- [ ] `CryptoGuard.exe.sha256` acompanha o binário.
+- [ ] `CryptoGuard-Setup.exe.sha256`, `latest.yml` e `.blockmap` acompanham o instalador.
 - [ ] Build provenance/attestation gerada.
 - [ ] Nenhum executável é commitado na branch principal.
 - [ ] Quando code signing estiver disponível, Authenticode deve ser obrigatório antes de atualizações automáticas silenciosas.

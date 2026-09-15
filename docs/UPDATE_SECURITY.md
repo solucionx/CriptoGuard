@@ -1,36 +1,63 @@
-# Modelo de Segurança para Atualizações
+# Segurança das Atualizações
 
-O Crypto Guard será distribuído como um único EXE portátil. O sistema de update será próprio e **não confiará apenas no fato de o arquivo estar hospedado no GitHub**.
+Desde a **v1.5.0**, o Crypto Guard usa o fluxo NSIS suportado pelo `electron-updater` e GitHub Releases como origem oficial de distribuição.
 
-## Descoberta
+## Origem fixada
 
-A versão disponível poderá ser descoberta em um repositório público oficial da Solucionx através da API HTTPS do GitHub. Essa consulta serve para descoberta; não é, sozinha, autorização para instalar código.
+O build contém explicitamente:
 
-## Autorização do update
+```text
+provider: github
+owner: solucionx
+repo: CryptoGuard
+```
 
-Uma atualização só poderá substituir a versão atual depois de verificar:
+O renderer não escolhe a origem e o aplicativo não contém PAT/GitHub token. Para usuários finais, o repositório de Releases precisa estar público.
 
-1. manifesto de update com formato/versão reconhecidos;
-2. assinatura Ed25519 válida do manifesto usando chave pública embutida no app;
-3. `product`/canal/repositório esperados;
-4. versão semanticamente maior que a instalada (sem downgrade/replay por padrão);
-5. tamanho e SHA-256 do `CryptoGuard.exe` exatamente iguais ao manifesto;
-6. Authenticode/publisher Solucionx quando o certificado de produção estiver habilitado;
-7. download concluído em arquivo temporário antes de qualquer troca;
-8. substituição atômica/rollback pelo helper de update.
+## Fluxo
 
-## O manifesto nunca poderá
+```text
+Abrir Crypto Guard
+        ↓
+Verificar Release estável
+        ↓
+Comparar versão instalada
+        ↓
+Baixar installer + metadata
+        ↓
+Validar metadata / SHA-512
+        ↓
+Aguardar operações criptográficas terminarem
+        ↓
+Instalar NSIS e reiniciar
+```
 
-- fornecer comandos de shell;
-- escolher executáveis arbitrários;
-- mudar o repositório/origem de download livremente;
-- fornecer caminhos locais arbitrários;
-- alterar a chave pública de confiança sem mecanismo explícito de rotação.
+## Controles ativos
+
+- `allowPrerelease = false`;
+- `allowDowngrade = false`;
+- `disableWebInstaller = true`;
+- target Windows limitado a NSIS completo;
+- metadata `latest.yml` gerado no mesmo pipeline da Release;
+- `.blockmap` publicado junto da versão;
+- SHA-256 adicional publicado para verificação humana/forense;
+- erro de rede ou GitHub nunca bloqueia a aplicação;
+- uma atualização pronta não interrompe criptografia/descriptografia ativa;
+- tags/Releases não devem ser sobrescritas: correções recebem nova versão;
+- GitHub Actions publica o instalador a partir do código versionado e gera attestation quando o repositório é público.
+
+## Limite atual: assinatura Authenticode
+
+Enquanto a Solucionx não possuir um certificado de code signing confiável, o Windows poderá exibir publisher desconhecido. A verificação de metadata/hash protege integridade do download, mas **não substitui identidade criptográfica do publisher** em caso de comprometimento da conta/pipeline do GitHub.
+
+Quando o certificado estiver disponível, o instalador e atualizações deverão ser assinados no workflow antes do hash/attestation final. O certificado/chave privada nunca deve ser versionado.
 
 ## Segredos
 
-O aplicativo nunca conterá PAT/GitHub token. A chave privada Ed25519 nunca será versionada nem empacotada. O repositório conterá no máximo a chave pública.
+Nunca colocar no aplicativo ou repositório:
 
-## Estado atual
-
-A infraestrutura documental está pronta, mas atualizações automáticas não devem ser habilitadas até a verificação criptográfica acima estar implementada e testada.
+- `GH_TOKEN`/PAT de usuário;
+- chave privada de code signing;
+- senha de certificado;
+- `.pfx`/`.p12`;
+- tokens de API.

@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-012659?style=for-the-badge&logo=windows11&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/AES--256--GCM-Authenticated-004676?style=for-the-badge" alt="AES-256-GCM">
   <img src="https://img.shields.io/badge/Scrypt-KDF-006496?style=for-the-badge" alt="Scrypt">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.4.1-003061?style=for-the-badge" alt="Versão 1.4.1">
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.5.0-003061?style=for-the-badge" alt="Versão 1.5.0">
 </p>
 
 <p align="center">
@@ -40,7 +40,7 @@ O projeto combina um frontend desktop em **Electron** com um motor criptográfic
 - Validação de integridade antes da restauração.
 - Senhas não são gravadas no histórico do aplicativo.
 - Interface Electron isolada com `contextIsolation`, `sandbox` e `nodeIntegration: false`.
-- Build Windows em **single EXE portátil**.
+- Instalador Windows **NSIS per-user** com atualização automática segura via GitHub Releases.
 
 > **Princípio do projeto:** a segurança do Crypto Guard não depende de esconder sua implementação. Segredos, chaves privadas, tokens e credenciais não pertencem ao código-fonte nem ao executável distribuído.
 
@@ -171,7 +171,7 @@ Antes de publicar uma release, consulte também [`PUBLICATION_READINESS.md`](PUB
 
 ---
 
-## Build para Windows — single EXE
+## Build para Windows — instalador autoatualizável
 
 ```powershell
 npm run build:win
@@ -181,8 +181,10 @@ Saída esperada:
 
 ```text
 release/
-├── CryptoGuard.exe
-└── CryptoGuard.exe.sha256
+├── CryptoGuard-Setup.exe
+├── CryptoGuard-Setup.exe.blockmap
+├── CryptoGuard-Setup.exe.sha256
+└── latest.yml
 ```
 
 Executáveis gerados localmente não são versionados na `main`. Releases oficiais devem ser produzidas pelo pipeline de release e acompanhadas das verificações de integridade previstas pelo projeto.
@@ -191,27 +193,19 @@ Executáveis gerados localmente não são versionados na `main`. Releases oficia
 
 ## Atualizações
 
-O Crypto Guard não deve confiar em uma atualização apenas porque o arquivo foi obtido do GitHub.
+A partir da **v1.5.0**, a build oficial usa NSIS e o aplicativo verifica a Release estável do repositório oficial ao iniciar. Quando existe versão mais nova, o download ocorre em segundo plano. A instalação só é iniciada quando não há criptografia ou descriptografia em andamento.
 
-O modelo de atualização previsto exige, entre outras verificações:
+Controles aplicados:
 
-```text
-Descoberta da nova versão
-        ↓
-Manifesto de atualização
-        ↓
-Assinatura criptográfica válida
-        ↓
-Proteção contra downgrade
-        ↓
-Download para área temporária
-        ↓
-Validação SHA-256
-        ↓
-Validação do publisher / Authenticode
-        ↓
-Substituição segura + rollback
-```
+- repositório de update fixado em `solucionx/CryptoGuard`;
+- nenhuma credencial GitHub é embutida no aplicativo;
+- pre-releases e downgrades são recusados;
+- o `electron-updater` valida o metadata `latest.yml` e o hash SHA-512 do artefato;
+- somente instalador NSIS completo é aceito (`nsis-web` fica desabilitado);
+- falhas de rede nunca bloqueiam a abertura ou o uso do Crypto Guard;
+- uma atualização baixada aguarda qualquer operação criptográfica ativa terminar antes de reiniciar o aplicativo.
+
+> **Assinatura de código:** enquanto a Solucionx ainda não possuir um certificado Authenticode confiável, o Windows pode mostrar publisher desconhecido. A assinatura Authenticode é a próxima camada de identidade do publisher e deverá ser adicionada ao pipeline quando o certificado estiver disponível.
 
 Detalhes em [`docs/UPDATE_SECURITY.md`](docs/UPDATE_SECURITY.md).
 
@@ -254,7 +248,7 @@ O código é disponibilizado para **transparência, auditoria de segurança e co
 Consulte [`SOURCE_AVAILABLE_NOTICE.md`](SOURCE_AVAILABLE_NOTICE.md).
 
 **Produto:** Crypto Guard  
-**Versão atual:** `1.4.1`  
+**Versão atual:** `1.5.0`  
 **App ID:** `com.solucionx.cryptoguard`  
 **Extensão:** `.cguard`  
 **Compatibilidade legada:** `.sxcrypt`  

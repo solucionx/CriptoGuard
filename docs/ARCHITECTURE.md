@@ -27,10 +27,12 @@ Crypto Engine (Python empacotado)
 
 ## Distribuição
 
-O usuário recebe somente `CryptoGuard.exe`. O Electron portable extrai recursos temporários durante a execução; o engine Python está incorporado no pacote.
+O usuário baixa `CryptoGuard-Setup.exe` e instala o aplicativo por usuário através do NSIS. O engine Python permanece incorporado nos recursos do aplicativo.
+
+O processo principal também contém o módulo de atualização. Ele consulta apenas a origem de update configurada no build (`solucionx/CryptoGuard`) e não recebe tokens ou URLs de atualização do renderer.
 
 ## Repositório público e supply chain
 
 A segurança não depende de esconder o código. O repositório público não contém chaves privadas. Actions oficiais usadas pelo CI são fixadas em commits SHA completos, workflows recebem permissões mínimas e releases são geradas por runner Windows a partir de tags versionadas. A proveniência do build é atestada no GitHub.
 
-O futuro updater tratará GitHub/HTTP como transporte e descoberta; a autorização final de um update dependerá de verificações criptográficas independentes descritas em `UPDATE_SECURITY.md`.
+O updater da v1.5.0 usa o fluxo NSIS suportado pelo `electron-updater`, com metadata/hashes da Release, bloqueio de downgrade e instalação apenas fora de operações criptográficas. Limites e próximas camadas estão em `UPDATE_SECURITY.md`.

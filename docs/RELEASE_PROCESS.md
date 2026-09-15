@@ -18,8 +18,8 @@ A tag precisa corresponder exatamente à versão do `package.json`:
 ```powershell
 git checkout main
 git pull --ff-only
-git tag -s v1.4.1 -m "Crypto Guard v1.4.1"
-git push origin v1.4.1
+git tag -s v1.5.0 -m "Crypto Guard v1.5.0"
+git push origin v1.5.0
 ```
 
 Se você ainda não usa assinatura GPG/SSH de tags, configure-a antes da primeira release pública quando possível. Nunca mova uma tag já publicada.
@@ -33,16 +33,16 @@ O workflow:
 - exige `package-lock.json`;
 - executa auditoria pré-publicação e testes;
 - instala dependências Node pelo lockfile;
-- compila o engine Python e o portable em runner Windows;
-- gera `CryptoGuard.exe` + SHA-256;
+- compila o engine Python e o instalador NSIS em runner Windows;
+- gera `CryptoGuard-Setup.exe`, `.blockmap`, `latest.yml` e SHA-256;
 - gera SBOM npm, inventário Python e `build-info.json`;
 - gera provenance/attestation do executável;
 - publica os artefatos na GitHub Release.
 
 ## Imutabilidade
 
-Uma Release já publicada nunca deve ser silenciosamente substituída. Se houver problema em `v1.4.1`, corrija e publique `v1.4.2`. O Ruleset de tags `v*` deve bloquear alteração e exclusão.
+Uma Release já publicada nunca deve ser silenciosamente substituída. Se houver problema em `v1.5.0`, corrija e publique `v1.5.1`. O Ruleset de tags `v*` deve bloquear alteração e exclusão.
 
 ## Assinatura Authenticode
 
-Enquanto não houver certificado de code signing da Solucionx, o Windows pode exibir publisher desconhecido. Quando o certificado estiver disponível, a assinatura deve entrar no pipeline **antes** do SHA-256/attestation final e deve ser verificada pelo workflow. Atualizações automáticas silenciosas não devem ser habilitadas antes dessa etapa e da assinatura própria do manifesto de update.
+Enquanto não houver certificado de code signing da Solucionx, o Windows pode exibir publisher desconhecido. Quando o certificado estiver disponível, a assinatura deve entrar no pipeline **antes** do SHA-256/attestation final e deve ser verificada pelo workflow. A v1.5.0 já suporta auto-update NSIS com verificação de metadata/hash. Authenticode deve ser adicionado assim que houver certificado da Solucionx para fortalecer a identidade criptográfica do publisher.

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0 — Auto Update
+
+- Migração da distribuição Windows de portable para instalador NSIS per-user.
+- Verificação automática de atualização ao iniciar.
+- Download automático de Releases estáveis pelo `electron-updater`.
+- Bloqueio de pre-release e downgrade.
+- Atualização aguarda operações de criptografia/descriptografia terminarem antes de instalar.
+- Geração de `latest.yml` e `.blockmap` no pipeline.
+- Botão manual “Verificar atualização agora” na tela Sobre.
+- Site deve apontar para `CryptoGuard-Setup.exe` a partir desta versão.
+
 Todas as alterações relevantes do Crypto Guard serão registradas aqui.
 
 ## [1.4.1] - 2026-09-15
