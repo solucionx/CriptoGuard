@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Versao a publicar (ex.: 1.4.1, sem o v)"
+        description: "Versao a publicar (ex.: 1.5.0, sem o v)"
         required: true
         type: string
       prerelease:
@@ -29,8 +29,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     environment: production-release
-
-    # Escrita fica limitada apenas ao job de release.
     permissions:
       contents: write
       id-token: write
@@ -65,30 +63,21 @@ jobs:
           $ErrorActionPreference = "Stop"
           $package = Get-Content package.json -Raw | ConvertFrom-Json
           $packageVersion = [string]$package.version
-
           if ($packageVersion -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') {
             throw "package.json possui versao invalida: $packageVersion"
           }
-
           $expectedTag = "v$packageVersion"
-
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $requested = "${{ inputs.version }}".Trim()
             if ($requested.StartsWith("v")) { $requested = $requested.Substring(1) }
             if ($requested -ne $packageVersion) {
-              throw "Versao solicitada ($requested) diferente de package.json ($packageVersion). Atualize package.json primeiro."
+              throw "Versao solicitada ($requested) diferente de package.json ($packageVersion)."
             }
-          } else {
-            if ("${{ github.ref_name }}" -ne $expectedTag) {
-              throw "Tag ${{ github.ref_name }} diferente de package.json $expectedTag"
-            }
+          } elseif ("${{ github.ref_name }}" -ne $expectedTag) {
+            throw "Tag ${{ github.ref_name }} diferente de package.json $expectedTag"
           }
-
           if (-not (Test-Path package-lock.json)) { throw "package-lock.json ausente." }
-          if (-not (Test-Path scripts/public-release-audit.py)) { throw "Auditoria de release ausente." }
-
           python scripts/public-release-audit.py
-
           "version=$packageVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$expectedTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
@@ -104,7 +93,7 @@ jobs:
           python -m compileall -q python tests scripts
           python -m unittest discover -s tests -v
 
-      - name: Build CryptoGuard.exe
+      - name: Build CryptoGuard auto-updatable installer
         shell: pwsh
         run: npm run build:win
 
@@ -126,7 +115,7 @@ jobs:
             finally { $stream.Dispose() }
             return ([System.BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
           }
-          $hash = Get-Sha256Hex -Path "release/CryptoGuard.exe"
+          $hash = Get-Sha256Hex -Path "release/CryptoGuard-Setup.exe"
           $buildInfo = @{
             product = "Crypto Guard"
             developer = "Solucionx"
@@ -134,6 +123,8 @@ jobs:
             tag = "${{ steps.meta.outputs.tag }}"
             commit = "${{ github.sha }}"
             sha256 = $hash
+            update_channel = "stable"
+            update_provider = "github"
             built_by = "GitHub Actions"
           } | ConvertTo-Json
           Set-Content release/build-info.json $buildInfo -Encoding utf8
@@ -143,15 +134,16 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           foreach ($f in @(
-            "release/CryptoGuard.exe",
-            "release/CryptoGuard.exe.sha256",
+            "release/CryptoGuard-Setup.exe",
+            "release/CryptoGuard-Setup.exe.blockmap",
+            "release/CryptoGuard-Setup.exe.sha256",
+            "release/latest.yml",
             "release/npm-sbom.cdx.json",
             "release/python-dependencies.json",
             "release/build-info.json"
           )) {
             if (-not (Test-Path $f)) { throw "Artefato ausente: $f" }
           }
-
           function Get-Sha256Hex {
             param([Parameter(Mandatory = $true)][string]$Path)
             $resolved = (Resolve-Path $Path).Path
@@ -164,19 +156,18 @@ jobs:
             finally { $stream.Dispose() }
             return ([System.BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
           }
-          $actual = Get-Sha256Hex -Path "release/CryptoGuard.exe"
-          $sidecar = (Get-Content release/CryptoGuard.exe.sha256 -Raw).ToLowerInvariant()
-          if ($sidecar -notmatch [regex]::Escape($actual)) {
-            throw "SHA-256 sidecar nao corresponde ao CryptoGuard.exe"
-          }
+          $actual = Get-Sha256Hex -Path "release/CryptoGuard-Setup.exe"
+          $sidecar = (Get-Content release/CryptoGuard-Setup.exe.sha256 -Raw).ToLowerInvariant()
+          if ($sidecar -notmatch [regex]::Escape($actual)) { throw "SHA-256 nao corresponde ao instalador." }
+          $latest = Get-Content release/latest.yml -Raw
+          if ($latest -notmatch [regex]::Escape("${{ steps.meta.outputs.version }}")) { throw "latest.yml nao referencia a versao atual." }
+          if ($latest -notmatch "CryptoGuard-Setup.exe") { throw "latest.yml nao referencia o instalador esperado." }
 
-      # GitHub Free/Pro/Team permite attestation apenas em repositorios publicos.
-      # Quando o repositorio for tornado publico, esta etapa entra automaticamente.
-      - name: Attest build provenance
+      - name: Attest installer provenance
         if: ${{ github.event.repository.private == false }}
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: release/CryptoGuard.exe
+          subject-path: release/CryptoGuard-Setup.exe
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -185,8 +176,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           path: |
-            release/CryptoGuard.exe
-            release/CryptoGuard.exe.sha256
+            release/CryptoGuard-Setup.exe
+            release/CryptoGuard-Setup.exe.blockmap
+            release/CryptoGuard-Setup.exe.sha256
+            release/latest.yml
             release/npm-sbom.cdx.json
             release/python-dependencies.json
             release/build-info.json
@@ -199,12 +192,8 @@ jobs:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
           $ErrorActionPreference = "Stop"
-
           gh api "repos/${{ github.repository }}/git/ref/tags/$env:RELEASE_TAG" --silent 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            throw "A tag $env:RELEASE_TAG ja existe. Nao sobrescrevemos tags de release. Incremente a versao."
-          }
-
+          if ($LASTEXITCODE -eq 0) { throw "A tag $env:RELEASE_TAG ja existe. Incremente a versao." }
           gh api --method POST "repos/${{ github.repository }}/git/refs" `
             -f ref="refs/tags/$env:RELEASE_TAG" `
             -f sha="${{ github.sha }}"
@@ -217,16 +206,14 @@ jobs:
           IS_PRERELEASE: ${{ inputs.prerelease || false }}
         run: |
           $ErrorActionPreference = "Stop"
-
           gh release view "$env:RELEASE_TAG" --repo "${{ github.repository }}" *> $null
-          if ($LASTEXITCODE -eq 0) {
-            throw "A Release $env:RELEASE_TAG ja existe. Releases publicadas nao sao substituidas silenciosamente."
-          }
-
+          if ($LASTEXITCODE -eq 0) { throw "A Release $env:RELEASE_TAG ja existe." }
           $args = @(
             "release", "create", "$env:RELEASE_TAG",
-            "release/CryptoGuard.exe",
-            "release/CryptoGuard.exe.sha256",
+            "release/CryptoGuard-Setup.exe",
+            "release/CryptoGuard-Setup.exe.blockmap",
+            "release/CryptoGuard-Setup.exe.sha256",
+            "release/latest.yml",
             "release/npm-sbom.cdx.json",
             "release/python-dependencies.json",
             "release/build-info.json",
@@ -235,6 +222,5 @@ jobs:
             "--generate-notes",
             "--verify-tag"
           )
-
           if ($env:IS_PRERELEASE -eq "true") { $args += "--prerelease" }
           & gh @args
