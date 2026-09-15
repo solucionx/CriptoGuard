@@ -109,19 +109,26 @@
       </section>
 
       <section id="settings" class="view">
-        <header><p class="eyebrow">PERSONALIZAR</p><h1>Aparência</h1><p>A identidade padrão segue a paleta oficial do Crypto Guard, mas você ainda pode personalizar a interface.</p></header>
-        <div class="card settings-grid">
-          <div>
-            <label class="setting-label">Paleta oficial</label>
-            <div class="brand-swatches">
-              <span title="#012659" style="--swatch:#012659"></span><span title="#003061" style="--swatch:#003061"></span><span title="#004676" style="--swatch:#004676"></span><span title="#006496" style="--swatch:#006496"></span><span title="#C5D0D7" style="--swatch:#C5D0D7"></span><span title="#DEEBEE" style="--swatch:#DEEBEE"></span>
+        <header><p class="eyebrow">PERSONALIZAR</p><h1>Aparência</h1><p>Escolha entre tema claro e escuro. A identidade visual do Crypto Guard permanece consistente em ambos.</p></header>
+        <div class="card settings-grid settings-simple">
+          <div class="theme-section">
+            <label class="setting-label">Tema do aplicativo</label>
+            <p class="setting-help">A escolha é salva automaticamente e aplicada em todas as telas do aplicativo.</p>
+            <div class="theme-toggle theme-toggle-large">
+              <button type="button" id="themeDark" class="theme-btn theme-choice">
+                <span class="theme-choice-title">Escuro</span>
+                <span class="theme-choice-sub">Foco, contraste e visual técnico</span>
+              </button>
+              <button type="button" id="themeLight" class="theme-btn theme-choice active">
+                <span class="theme-choice-title">Claro</span>
+                <span class="theme-choice-sub">Leitura suave e interface limpa</span>
+              </button>
             </div>
           </div>
-          <label>Tema<div class="theme-toggle"><button type="button" id="themeDark" class="theme-btn">Escuro</button><button type="button" id="themeLight" class="theme-btn active">Claro</button></div></label>
-          <label>Cor de destaque<input id="accent" type="color" value="#006496" /></label>
-          <label>Arredondamento<input id="radius" type="range" min="6" max="24" value="12" /></label>
-          <label>Densidade<select id="density"><option value="comfortable">Confortável</option><option value="compact">Compacta</option></select></label>
-          <button id="resetAppearance" type="button" class="secondary">Restaurar identidade Crypto Guard</button>
+          <div class="appearance-note">
+            <strong>Identidade visual protegida</strong>
+            <p>Para manter o Crypto Guard consistente e profissional, a paleta de cores e a estrutura visual são fixas. Apenas o tema é personalizável.</p>
+          </div>
         </div>
       </section>
 
@@ -129,7 +136,18 @@
         <header><p class="eyebrow">CRYPTO GUARD</p><h1>Secure files. Stronger futures.</h1><p>Aplicativo desktop para criptografar e descriptografar arquivos e pastas localmente.</p></header>
         <div class="card about-card">
           <img src="assets/logo.png" class="about-logo" alt="Crypto Guard" />
-          <div><h2>Crypto Guard</h2><p class="about-sub">Encrypt / Decrypt Software</p><p><strong>Versão:</strong> <span id="appVersion">—</span></p><p><strong>Atualizações:</strong> <span id="updateStatus">Verificação automática ao iniciar</span></p><button id="checkUpdates" type="button" class="secondary action-top">Verificar atualização agora</button><p class="solucionx-credit">Desenvolvido pela <strong>Solucionx</strong></p><p>AES-256-GCM para confidencialidade e autenticação, com Scrypt para derivação de chave. O conteúdo não é enviado para a nuvem.</p><div class="about-badges"><span>Local-first</span><span>AES-256-GCM</span><span>Scrypt</span><span>Auto-update</span></div></div>
+          <div class="about-content">
+            <h2>Crypto Guard</h2>
+            <p class="about-sub">Encrypt / Decrypt Software</p>
+            <div class="about-meta">
+              <div class="about-meta-row"><span class="about-meta-label">Versão</span><strong id="appVersion">—</strong></div>
+              <div class="about-meta-row"><span class="about-meta-label">Atualizações</span><span id="updateStatus" class="update-status">Verificação automática ao iniciar</span></div>
+            </div>
+            <button id="checkUpdates" type="button" class="secondary about-update-button">Verificar atualização agora</button>
+            <p class="solucionx-credit">Desenvolvido pela <strong>Solucionx</strong></p>
+            <p class="about-description">AES-256-GCM para confidencialidade e autenticação, com Scrypt para derivação de chave. O conteúdo não é enviado para a nuvem.</p>
+            <div class="about-badges"><span>Processamento local</span><span>AES-256-GCM</span><span>Scrypt</span><span>Atualização automática</span></div>
+          </div>
         </div>
       </section>
     </main>

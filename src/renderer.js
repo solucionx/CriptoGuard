@@ -438,22 +438,23 @@ function applyTheme(theme) {
   $('themeDark').classList.toggle('active', theme === 'dark');
   $('themeLight').classList.toggle('active', theme === 'light');
 }
-$('themeDark').onclick = () => { applyTheme('dark'); localStorage.setItem('cryptoGuardTheme', 'dark'); };
-$('themeLight').onclick = () => { applyTheme('light'); localStorage.setItem('cryptoGuardTheme', 'light'); };
-$('accent').oninput = (e) => { document.documentElement.style.setProperty('--accent', e.target.value); localStorage.setItem('cryptoGuardAccent', e.target.value); };
-$('radius').oninput = (e) => { document.documentElement.style.setProperty('--radius', `${e.target.value}px`); localStorage.setItem('cryptoGuardRadius', e.target.value); };
-$('density').onchange = (e) => { document.body.classList.toggle('compact', e.target.value === 'compact'); localStorage.setItem('cryptoGuardDensity', e.target.value); };
-$('resetAppearance').onclick = () => {
-  applyTheme('light'); $('accent').value = '#006496'; $('radius').value = '12'; $('density').value = 'comfortable';
-  document.documentElement.style.setProperty('--accent', '#006496'); document.documentElement.style.setProperty('--radius', '12px'); document.body.classList.remove('compact');
-  localStorage.setItem('cryptoGuardTheme', 'light'); localStorage.setItem('cryptoGuardAccent', '#006496'); localStorage.setItem('cryptoGuardRadius', '12'); localStorage.setItem('cryptoGuardDensity', 'comfortable');
-  showToast('Identidade restaurada', 'A paleta oficial do Crypto Guard foi aplicada.', 'success');
+$('themeDark').onclick = () => {
+  applyTheme('dark');
+  localStorage.setItem('cryptoGuardTheme', 'dark');
+  showToast('Tema atualizado', 'O modo escuro foi aplicado ao Crypto Guard.', 'success');
+};
+$('themeLight').onclick = () => {
+  applyTheme('light');
+  localStorage.setItem('cryptoGuardTheme', 'light');
+  showToast('Tema atualizado', 'O modo claro foi aplicado ao Crypto Guard.', 'success');
 };
 
-const savedTheme = localStorage.getItem('cryptoGuardTheme') || 'light'; applyTheme(savedTheme);
-const savedAccent = localStorage.getItem('cryptoGuardAccent') || '#006496'; $('accent').value = savedAccent; document.documentElement.style.setProperty('--accent', savedAccent);
-const savedRadius = localStorage.getItem('cryptoGuardRadius') || '12'; $('radius').value = savedRadius; document.documentElement.style.setProperty('--radius', `${savedRadius}px`);
-const savedDensity = localStorage.getItem('cryptoGuardDensity') || 'comfortable'; $('density').value = savedDensity; document.body.classList.toggle('compact', savedDensity === 'compact');
+const savedTheme = localStorage.getItem('cryptoGuardTheme') || 'light';
+applyTheme(savedTheme);
+['cryptoGuardAccent', 'cryptoGuardRadius', 'cryptoGuardDensity'].forEach((key) => localStorage.removeItem(key));
+document.body.classList.remove('compact');
+document.documentElement.style.setProperty('--accent', '#006496');
+document.documentElement.style.setProperty('--radius', '12px');
 
 
 function formatUpdateProgress(data) {
