@@ -1,0 +1,216 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versao a publicar (ex.: 1.4.1, sem o v)"
+        required: true
+        type: string
+      prerelease:
+        description: "Publicar como pre-release?"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-release:
+    name: Validate, build and publish
+    runs-on: windows-latest
+    timeout-minutes: 45
+    environment: production-release
+
+    # Escrita fica limitada apenas ao job de release.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24.20.0"
+          cache: "npm"
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            python/requirements.txt
+            python/requirements-build.txt
+
+      - name: Validate requested version and repository policy
+        id: meta
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $packageVersion = [string]$package.version
+
+          if ($packageVersion -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') {
+            throw "package.json possui versao invalida: $packageVersion"
+          }
+
+          $expectedTag = "v$packageVersion"
+
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $requested = "${{ inputs.version }}".Trim()
+            if ($requested.StartsWith("v")) { $requested = $requested.Substring(1) }
+            if ($requested -ne $packageVersion) {
+              throw "Versao solicitada ($requested) diferente de package.json ($packageVersion). Atualize package.json primeiro."
+            }
+          } else {
+            if ("${{ github.ref_name }}" -ne $expectedTag) {
+              throw "Tag ${{ github.ref_name }} diferente de package.json $expectedTag"
+            }
+          }
+
+          if (-not (Test-Path package-lock.json)) { throw "package-lock.json ausente." }
+          if (-not (Test-Path scripts/public-release-audit.py)) { throw "Auditoria de release ausente." }
+
+          python scripts/public-release-audit.py
+
+          "version=$packageVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$expectedTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Install Node dependencies from lockfile
+        run: npm ci
+
+      - name: Source checks and tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          npm run check:js
+          python -m pip install --disable-pip-version-check --no-input -r python/requirements.txt
+          python -m compileall -q python tests scripts
+          python -m unittest discover -s tests -v
+
+      - name: Build CryptoGuard.exe
+        shell: pwsh
+        run: npm run build:win
+
+      - name: Produce dependency inventories
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          npm sbom --sbom-format=cyclonedx | Out-File -Encoding utf8 release/npm-sbom.cdx.json
+          python -m pip inspect | Out-File -Encoding utf8 release/python-dependencies.json
+          $hash = (Get-FileHash release/CryptoGuard.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $buildInfo = @{
+            product = "Crypto Guard"
+            developer = "Solucionx"
+            version = "${{ steps.meta.outputs.version }}"
+            tag = "${{ steps.meta.outputs.tag }}"
+            commit = "${{ github.sha }}"
+            sha256 = $hash
+            built_by = "GitHub Actions"
+          } | ConvertTo-Json
+          Set-Content release/build-info.json $buildInfo -Encoding utf8
+
+      - name: Verify release artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($f in @(
+            "release/CryptoGuard.exe",
+            "release/CryptoGuard.exe.sha256",
+            "release/npm-sbom.cdx.json",
+            "release/python-dependencies.json",
+            "release/build-info.json"
+          )) {
+            if (-not (Test-Path $f)) { throw "Artefato ausente: $f" }
+          }
+
+          $actual = (Get-FileHash release/CryptoGuard.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $sidecar = (Get-Content release/CryptoGuard.exe.sha256 -Raw).ToLowerInvariant()
+          if ($sidecar -notmatch [regex]::Escape($actual)) {
+            throw "SHA-256 sidecar nao corresponde ao CryptoGuard.exe"
+          }
+
+      # GitHub Free/Pro/Team permite attestation apenas em repositorios publicos.
+      # Quando o repositorio for tornado publico, esta etapa entra automaticamente.
+      - name: Attest build provenance
+        if: ${{ github.event.repository.private == false }}
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: release/CryptoGuard.exe
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: CryptoGuard-Windows-x64-${{ steps.meta.outputs.tag }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            release/CryptoGuard.exe
+            release/CryptoGuard.exe.sha256
+            release/npm-sbom.cdx.json
+            release/python-dependencies.json
+            release/build-info.json
+
+      - name: Create immutable tag for manual release
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          gh api "repos/${{ github.repository }}/git/ref/tags/$env:RELEASE_TAG" --silent 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            throw "A tag $env:RELEASE_TAG ja existe. Nao sobrescrevemos tags de release. Incremente a versao."
+          }
+
+          gh api --method POST "repos/${{ github.repository }}/git/refs" `
+            -f ref="refs/tags/$env:RELEASE_TAG" `
+            -f sha="${{ github.sha }}"
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          IS_PRERELEASE: ${{ inputs.prerelease || false }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          gh release view "$env:RELEASE_TAG" --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "A Release $env:RELEASE_TAG ja existe. Releases publicadas nao sao substituidas silenciosamente."
+          }
+
+          $args = @(
+            "release", "create", "$env:RELEASE_TAG",
+            "release/CryptoGuard.exe",
+            "release/CryptoGuard.exe.sha256",
+            "release/npm-sbom.cdx.json",
+            "release/python-dependencies.json",
+            "release/build-info.json",
+            "--repo", "${{ github.repository }}",
+            "--title", "Crypto Guard $env:RELEASE_TAG",
+            "--generate-notes",
+            "--verify-tag"
+          )
+
+          if ($env:IS_PRERELEASE -eq "true") { $args += "--prerelease" }
+          & gh @args
