@@ -1,4 +1,29 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
+
+function Get-Sha256Hex {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $Resolved = (Resolve-Path $Path).Path
+    $Stream = [System.IO.File]::OpenRead($Resolved)
+    try {
+        $Sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $Bytes = $Sha256.ComputeHash($Stream)
+        }
+        finally {
+            $Sha256.Dispose()
+        }
+    }
+    finally {
+        $Stream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($Bytes)).Replace("-", "")
+}
+
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $Root
@@ -41,7 +66,7 @@ if (-not (Test-Path $Output)) {
 Get-ChildItem .\release -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 Get-ChildItem .\release -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "CryptoGuard.exe" } | Remove-Item -Force
 
-$Hash = (Get-FileHash $Output -Algorithm SHA256).Hash
+$Hash = Get-Sha256Hex -Path $Output
 Set-Content -Path (Join-Path $Root "release\CryptoGuard.exe.sha256") -Value "$Hash  CryptoGuard.exe" -Encoding ASCII
 
 Write-Host ""
