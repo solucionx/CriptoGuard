@@ -79,6 +79,18 @@ try:
     target_names = [item.get("target") if isinstance(item, dict) else item for item in targets]
     if "nsis" not in target_names:
         errors.append("target NSIS obrigatorio para auto atualização no Windows")
+    nsis = build.get("nsis", {})
+    if nsis.get("perMachine") is not True:
+        errors.append("nsis.perMachine=true é obrigatório para associação .cguard no Windows")
+    associations = build.get("fileAssociations", [])
+    if isinstance(associations, dict):
+        associations = [associations]
+    has_cguard = any(
+        "cguard" in ([item.get("ext")] if isinstance(item.get("ext"), str) else item.get("ext", []))
+        for item in associations if isinstance(item, dict)
+    )
+    if not has_cguard:
+        errors.append("associação de arquivo .cguard ausente em build.fileAssociations")
     publish = build.get("publish", [])
     gh = next((item for item in publish if isinstance(item, dict) and item.get("provider") == "github"), None)
     if not gh or gh.get("owner") != "solucionx" or gh.get("repo") != "CryptoGuard":

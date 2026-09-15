@@ -10,6 +10,52 @@ const { autoUpdater } = require('electron-updater');
 const APP_ID = 'com.solucionx.cryptoguard';
 const APP_NAME = 'Crypto Guard';
 const DEVELOPER = 'Solucionx';
+const ELEVATED_FLAG = '--crypto-guard-elevated';
+const PROTECTED_EXTENSIONS = new Set(['.cguard', '.sxcrypt']);
+const isElevatedRelaunch = process.argv.includes(ELEVATED_FLAG);
+const hasSingleInstanceLock = isElevatedRelaunch ? true : app.requestSingleInstanceLock();
+let mainWindow = null;
+let rendererReady = false;
+let pendingProtectedFiles = [];
+
+function protectedFilesFromArgs(argv) {
+  const unique = new Set();
+  for (const rawArg of Array.isArray(argv) ? argv : []) {
+    if (typeof rawArg !== 'string' || !rawArg.trim() || rawArg.startsWith('--')) continue;
+    const candidate = rawArg.trim().replace(/^"|"$/g, '');
+    const ext = path.extname(candidate).toLowerCase();
+    if (!PROTECTED_EXTENSIONS.has(ext)) continue;
+    try {
+      const resolved = path.resolve(candidate);
+      const stat = fs.statSync(resolved);
+      if (stat.isFile()) unique.add(resolved);
+    } catch {
+      // Argumentos inválidos/inexistentes são ignorados; nunca executamos o conteúdo.
+    }
+  }
+  return Array.from(unique).slice(0, 100);
+}
+
+function queueProtectedFiles(paths) {
+  for (const filePath of Array.isArray(paths) ? paths : []) {
+    if (!pendingProtectedFiles.includes(filePath)) pendingProtectedFiles.push(filePath);
+  }
+  pendingProtectedFiles = pendingProtectedFiles.slice(-100);
+  flushPendingProtectedFiles();
+}
+
+function flushPendingProtectedFiles() {
+  if (!rendererReady || !mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed() || !pendingProtectedFiles.length) return;
+  const paths = pendingProtectedFiles.splice(0, pendingProtectedFiles.length);
+  mainWindow.webContents.send('open-protected-files', paths);
+}
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 
 app.setName(APP_NAME);
 if (process.platform === 'win32') {
@@ -34,7 +80,7 @@ function broadcastUpdateStatus(payload) {
 }
 
 function updaterSupported() {
-  return app.isPackaged && process.platform === 'win32' && !process.argv.includes('--crypto-guard-elevated');
+  return app.isPackaged && process.platform === 'win32' && !isElevatedRelaunch;
 }
 
 function installDownloadedUpdateWhenSafe() {
@@ -145,6 +191,16 @@ function createWindow() {
       event.preventDefault();
     }
   });
+  mainWindow = win;
+  rendererReady = false;
+  win.webContents.on('did-start-loading', () => { if (mainWindow === win) rendererReady = false; });
+  win.webContents.once('did-finish-load', () => {
+    if (mainWindow === win) rendererReady = true;
+    flushPendingProtectedFiles();
+  });
+  win.on('closed', () => {
+    if (mainWindow === win) { mainWindow = null; rendererReady = false; }
+  });
   win.loadFile(path.join(__dirname, 'index.html'));
   return win;
 }
@@ -239,7 +295,7 @@ function launchElevatedCopy() {
       ? process.env.PORTABLE_EXECUTABLE_FILE
       : process.execPath;
     const args = app.isPackaged ? [] : [app.getAppPath()];
-    args.push('--crypto-guard-elevated');
+    args.push(ELEVATED_FLAG);
     const argList = args.length ? ` -ArgumentList @(${args.map(psQuote).join(',')})` : '';
     const script = `Start-Process -FilePath ${psQuote(executable)}${argList} -Verb RunAs`;
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
@@ -471,14 +527,29 @@ ipcMain.handle('crypto-run', async (event, payload) => {
   return { results, cancelled, requested: paths.length };
 });
 
-app.whenReady().then(() => {
-  // O renderer não precisa de câmera, microfone, geolocalização, MIDI etc.
-  // Nega permissões web por padrão para reduzir a superfície de ataque.
-  electronSession.defaultSession.setPermissionCheckHandler(() => false);
-  electronSession.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  buildMenu();
-  createWindow();
-  configureAutoUpdater();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-});
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+if (!hasSingleInstanceLock) {
+  // Duplo clique em .cguard quando o app já está aberto: esta instância encerra,
+  // e a instância principal recebe o caminho no evento second-instance.
+  app.quit();
+} else {
+  if (!isElevatedRelaunch) {
+    app.on('second-instance', (_event, argv) => {
+      queueProtectedFiles(protectedFilesFromArgs(argv));
+      focusMainWindow();
+    });
+  }
+
+  app.whenReady().then(() => {
+    // O renderer não precisa de câmera, microfone, geolocalização, MIDI etc.
+    // Nega permissões web por padrão para reduzir a superfície de ataque.
+    electronSession.defaultSession.setPermissionCheckHandler(() => false);
+    electronSession.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+    buildMenu();
+    queueProtectedFiles(protectedFilesFromArgs(process.argv));
+    createWindow();
+    configureAutoUpdater();
+    app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  });
+
+  app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+}

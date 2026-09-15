@@ -20,5 +20,10 @@ contextBridge.exposeInMainWorld('cryptoGuard', {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('update-status', listener);
     return () => ipcRenderer.removeListener('update-status', listener);
+  },
+  onOpenProtectedFiles: (callback) => {
+    const listener = (_event, paths) => callback(Array.isArray(paths) ? paths : []);
+    ipcRenderer.on('open-protected-files', listener);
+    return () => ipcRenderer.removeListener('open-protected-files', listener);
   }
 });

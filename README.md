@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-012659?style=for-the-badge&logo=windows11&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/AES--256--GCM-Authenticated-004676?style=for-the-badge" alt="AES-256-GCM">
   <img src="https://img.shields.io/badge/Scrypt-KDF-006496?style=for-the-badge" alt="Scrypt">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.5.1-003061?style=for-the-badge" alt="Versão 1.5.1">
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.5.2-003061?style=for-the-badge" alt="Versão 1.5.2">
 </p>
 
 <p align="center">
@@ -248,7 +248,7 @@ O código é disponibilizado para **transparência, auditoria de segurança e co
 Consulte [`SOURCE_AVAILABLE_NOTICE.md`](SOURCE_AVAILABLE_NOTICE.md).
 
 **Produto:** Crypto Guard  
-**Versão atual:** `1.5.1`  
+**Versão atual:** `1.5.2`  
 **App ID:** `com.solucionx.cryptoguard`  
 **Extensão:** `.cguard`  
 **Compatibilidade legada:** `.sxcrypt`  
@@ -258,3 +258,8 @@ Consulte [`SOURCE_AVAILABLE_NOTICE.md`](SOURCE_AVAILABLE_NOTICE.md).
   <img src="docs/assets/crypto-guard-mark.png" alt="Crypto Guard" width="96"><br>
   <sub>Copyright © 2026 Solucionx. Todos os direitos reservados.</sub>
 </p>
+
+
+### Integração com o Explorador do Windows (v1.5.2)
+
+Arquivos `.cguard` são registrados como arquivos protegidos do Crypto Guard. Um duplo clique abre o aplicativo diretamente na tela de descriptografia, carrega o arquivo selecionado e solicita a senha. O conteúdo nunca é restaurado automaticamente sem autenticação. Se o Crypto Guard já estiver aberto, a instância existente recebe o arquivo em vez de abrir uma segunda janela.

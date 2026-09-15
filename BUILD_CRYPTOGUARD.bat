@@ -1,8 +1,8 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ==========================================
-echo  Crypto Guard 1.5.0 - Build Installer
+echo  Crypto Guard 1.5.2 - Build Installer
 echo  Auto Update via GitHub Releases
 echo  Desenvolvido pela Solucionx
 echo ==========================================

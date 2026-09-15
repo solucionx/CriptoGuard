@@ -22,7 +22,9 @@ if ($env:OS -ne "Windows_NT") {
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor DarkBlue
-Write-Host " Crypto Guard 1.5.0 - Build Auto Update" -ForegroundColor Blue
+$Package = Get-Content (Join-Path $Root "package.json") -Raw | ConvertFrom-Json
+$Version = [string]$Package.version
+Write-Host " Crypto Guard $Version - Build Windows" -ForegroundColor Blue
 Write-Host " Desenvolvido pela Solucionx" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor DarkBlue
 Write-Host ""

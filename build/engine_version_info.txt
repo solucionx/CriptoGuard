@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Solucionx'),
           StringStruct('FileDescription', 'Crypto Guard Cryptographic Engine'),
-          StringStruct('FileVersion', '1.5.0.0'),
+          StringStruct('FileVersion', '1.5.2.0'),
           StringStruct('InternalName', 'crypto_guard_engine'),
           StringStruct('LegalCopyright', 'Copyright © 2026 Solucionx'),
           StringStruct('OriginalFilename', 'crypto_guard_engine.exe'),
           StringStruct('ProductName', 'Crypto Guard'),
-          StringStruct('ProductVersion', '1.5.0')
+          StringStruct('ProductVersion', '1.5.2')
         ]
       )
     ]),

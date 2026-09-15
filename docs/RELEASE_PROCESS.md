@@ -18,8 +18,8 @@ A tag precisa corresponder exatamente à versão do `package.json`:
 ```powershell
 git checkout main
 git pull --ff-only
-git tag -s v1.5.1 -m "Crypto Guard v1.5.1"
-git push origin v1.5.1
+git tag -s v1.5.2 -m "Crypto Guard v1.5.2"
+git push origin v1.5.2
 ```
 
 Se você ainda não usa assinatura GPG/SSH de tags, configure-a antes da primeira release pública quando possível. Nunca mova uma tag já publicada.
@@ -41,7 +41,7 @@ O workflow:
 
 ## Imutabilidade
 
-Uma Release já publicada nunca deve ser silenciosamente substituída. Se houver problema em `v1.5.1`, corrija e publique `v1.5.1`. O Ruleset de tags `v*` deve bloquear alteração e exclusão.
+Uma Release já publicada nunca deve ser silenciosamente substituída. Se houver problema em `v1.5.2`, corrija e publique uma nova versão (por exemplo, `v1.5.3`). O Ruleset de tags `v*` deve bloquear alteração e exclusão.
 
 ## Assinatura Authenticode
 

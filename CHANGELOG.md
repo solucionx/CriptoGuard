@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.2 — 2026-09-15
+
+- associação do formato `.cguard` ao Crypto Guard no Windows;
+- duplo clique em `.cguard` abre o aplicativo diretamente na tela de descriptografia;
+- arquivo aberto pelo Explorador é carregado automaticamente, mas a senha continua obrigatória;
+- instância única: se o app já estiver aberto, o arquivo é enviado para a janela existente;
+- correção do repositório de atualização para `solucionx/CryptoGuard`;
+- instalador NSIS passa a ser `perMachine` para registrar a associação de arquivos de forma suportada;
+- validações de release reforçadas para impedir build sem associação `.cguard`.
+
 ## 1.5.1 — 2026-09-15
 
 - Simplifica Aparência para apenas temas Claro e Escuro.

@@ -1,6 +1,6 @@
 {
   "name": "crypto-guard-desktop",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Crypto Guard — criptografia local auditável de arquivos e pastas para Windows. Desenvolvido pela Solucionx.",
   "main": "src/main.js",
   "private": true,
@@ -16,7 +16,8 @@
     "dist:win": "npm run build:win",
     "check:js": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
     "test:python": "python -m unittest discover -s tests -v",
-    "security:audit": "python scripts/public-release-audit.py"
+    "security:audit": "python scripts/public-release-audit.py",
+    "check:release-config": "node scripts/verify-release-config.mjs"
   },
   "devDependencies": {
     "electron": "44.3.0",
@@ -64,7 +65,7 @@
     "afterPack": "scripts/after-pack.mjs",
     "nsis": {
       "oneClick": false,
-      "perMachine": false,
+      "perMachine": true,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
@@ -85,6 +86,13 @@
         "owner": "solucionx",
         "repo": "CryptoGuard",
         "releaseType": "release"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "cguard",
+        "name": "Crypto Guard Protected File",
+        "description": "Arquivo protegido pelo Crypto Guard"
       }
     ]
   },

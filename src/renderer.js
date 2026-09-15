@@ -281,6 +281,22 @@ function addDecryptItems(infos) {
 }
 function wireDecryptRemoval() { renderSelectionList('decryptList', decryptItems, (idx) => { decryptItems.splice(idx, 1); wireDecryptRemoval(); }); }
 
+
+window.cryptoGuard.onOpenProtectedFiles(async (paths) => {
+  const safePaths = Array.isArray(paths) ? paths.filter((p) => typeof p === 'string').slice(0, 100) : [];
+  if (!safePaths.length) return;
+  try {
+    const infos = await window.cryptoGuard.pathsInfo(safePaths);
+    addDecryptItems(infos);
+    navigateTo('decrypt');
+    const first = infos?.[0]?.name || baseName(safePaths[0]);
+    showToast('Arquivo protegido aberto', `${first} está pronto para descriptografar. Digite a senha para continuar.`, 'success');
+    setTimeout(() => $('decPassword')?.focus(), 80);
+  } catch (err) {
+    showToast('Não foi possível abrir o arquivo', err?.message || 'O arquivo protegido não pôde ser carregado.', 'error');
+  }
+});
+
 $('pickFiles').onclick = async () => addEncryptItems(await window.cryptoGuard.pickFiles());
 $('pickFolder').onclick = async () => { const info = await window.cryptoGuard.pickFolder(); if (info) addEncryptItems([info]); };
 $('pickEncrypted').onclick = async () => addDecryptItems(await window.cryptoGuard.pickEncryptedFiles());
