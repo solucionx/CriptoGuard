@@ -114,7 +114,19 @@ jobs:
           $ErrorActionPreference = "Stop"
           npm sbom --sbom-format=cyclonedx | Out-File -Encoding utf8 release/npm-sbom.cdx.json
           python -m pip inspect | Out-File -Encoding utf8 release/python-dependencies.json
-          $hash = (Get-FileHash release/CryptoGuard.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          function Get-Sha256Hex {
+            param([Parameter(Mandatory = $true)][string]$Path)
+            $resolved = (Resolve-Path $Path).Path
+            $stream = [System.IO.File]::OpenRead($resolved)
+            try {
+              $sha256 = [System.Security.Cryptography.SHA256]::Create()
+              try { $bytes = $sha256.ComputeHash($stream) }
+              finally { $sha256.Dispose() }
+            }
+            finally { $stream.Dispose() }
+            return ([System.BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+          }
+          $hash = Get-Sha256Hex -Path "release/CryptoGuard.exe"
           $buildInfo = @{
             product = "Crypto Guard"
             developer = "Solucionx"
@@ -140,7 +152,19 @@ jobs:
             if (-not (Test-Path $f)) { throw "Artefato ausente: $f" }
           }
 
-          $actual = (Get-FileHash release/CryptoGuard.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          function Get-Sha256Hex {
+            param([Parameter(Mandatory = $true)][string]$Path)
+            $resolved = (Resolve-Path $Path).Path
+            $stream = [System.IO.File]::OpenRead($resolved)
+            try {
+              $sha256 = [System.Security.Cryptography.SHA256]::Create()
+              try { $bytes = $sha256.ComputeHash($stream) }
+              finally { $sha256.Dispose() }
+            }
+            finally { $stream.Dispose() }
+            return ([System.BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+          }
+          $actual = Get-Sha256Hex -Path "release/CryptoGuard.exe"
           $sidecar = (Get-Content release/CryptoGuard.exe.sha256 -Raw).ToLowerInvariant()
           if ($sidecar -notmatch [regex]::Escape($actual)) {
             throw "SHA-256 sidecar nao corresponde ao CryptoGuard.exe"
