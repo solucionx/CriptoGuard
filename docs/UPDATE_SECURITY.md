@@ -1,6 +1,6 @@
 # Segurança das Atualizações
 
-Desde a **v1.5.0**, o Crypto Guard usa o fluxo NSIS suportado pelo `electron-updater` e GitHub Releases como origem oficial de distribuição.
+Desde a **v1.5.1**, o Crypto Guard usa o fluxo NSIS suportado pelo `electron-updater` e GitHub Releases como origem oficial de distribuição.
 
 ## Origem fixada
 

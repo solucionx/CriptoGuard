@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-012659?style=for-the-badge&logo=windows11&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/AES--256--GCM-Authenticated-004676?style=for-the-badge" alt="AES-256-GCM">
   <img src="https://img.shields.io/badge/Scrypt-KDF-006496?style=for-the-badge" alt="Scrypt">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.5.0-003061?style=for-the-badge" alt="Versão 1.5.0">
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.5.1-003061?style=for-the-badge" alt="Versão 1.5.1">
 </p>
 
 <p align="center">
@@ -193,7 +193,7 @@ Executáveis gerados localmente não são versionados na `main`. Releases oficia
 
 ## Atualizações
 
-A partir da **v1.5.0**, a build oficial usa NSIS e o aplicativo verifica a Release estável do repositório oficial ao iniciar. Quando existe versão mais nova, o download ocorre em segundo plano. A instalação só é iniciada quando não há criptografia ou descriptografia em andamento.
+A partir da **v1.5.1**, a build oficial usa NSIS e o aplicativo verifica a Release estável do repositório oficial ao iniciar. Quando existe versão mais nova, o download ocorre em segundo plano. A instalação só é iniciada quando não há criptografia ou descriptografia em andamento.
 
 Controles aplicados:
 
@@ -248,7 +248,7 @@ O código é disponibilizado para **transparência, auditoria de segurança e co
 Consulte [`SOURCE_AVAILABLE_NOTICE.md`](SOURCE_AVAILABLE_NOTICE.md).
 
 **Produto:** Crypto Guard  
-**Versão atual:** `1.5.0`  
+**Versão atual:** `1.5.1`  
 **App ID:** `com.solucionx.cryptoguard`  
 **Extensão:** `.cguard`  
 **Compatibilidade legada:** `.sxcrypt`  

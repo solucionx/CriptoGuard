@@ -35,4 +35,4 @@ O processo principal também contém o módulo de atualização. Ele consulta ap
 
 A segurança não depende de esconder o código. O repositório público não contém chaves privadas. Actions oficiais usadas pelo CI são fixadas em commits SHA completos, workflows recebem permissões mínimas e releases são geradas por runner Windows a partir de tags versionadas. A proveniência do build é atestada no GitHub.
 
-O updater da v1.5.0 usa o fluxo NSIS suportado pelo `electron-updater`, com metadata/hashes da Release, bloqueio de downgrade e instalação apenas fora de operações criptográficas. Limites e próximas camadas estão em `UPDATE_SECURITY.md`.
+O updater da v1.5.1 usa o fluxo NSIS suportado pelo `electron-updater`, com metadata/hashes da Release, bloqueio de downgrade e instalação apenas fora de operações criptográficas. Limites e próximas camadas estão em `UPDATE_SECURITY.md`.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.1 — 2026-09-15
+
+- Simplifica Aparência para apenas temas Claro e Escuro.
+- Remove personalização de paleta, cor de destaque, arredondamento e densidade.
+- Reorganiza a tela Sobre e corrige o alinhamento do crédito “Desenvolvido pela Solucionx”.
+- Refina o estado visual de atualização e os rótulos técnicos em português.
+- Mantém o instalador NSIS com branding personalizado e o fluxo de autoatualização via GitHub Releases.
+
+
 ## 1.5.0 — Auto Update
 
 - Migração da distribuição Windows de portable para instalador NSIS per-user.
