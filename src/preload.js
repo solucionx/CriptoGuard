@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('cryptoGuard', {
   cancelCrypto: () => ipcRenderer.invoke('crypto-cancel'),
   getAppInfo: () => ipcRenderer.invoke('app-info'),
   checkForUpdates: () => ipcRenderer.invoke('update-check'),
+  installUpdate: () => ipcRenderer.invoke('update-install'),
   requestElevation: () => ipcRenderer.invoke('request-elevation'),
   consumeOpenFiles: () => ipcRenderer.invoke('consume-open-files'),
   getPathForFile: (file) => webUtils.getPathForFile(file),

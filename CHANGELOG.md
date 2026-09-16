@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.3 — Auto-update restart reliability
+
+- Corrige o fluxo em que a atualização era instalada em modo NSIS silencioso e o Crypto Guard podia fechar sem reabrir.
+- Atualizações continuam sendo verificadas e baixadas automaticamente, mas não fecham mais o aplicativo assim que o download termina.
+- Quando a atualização estiver pronta, o botão passa para **Instalar e reiniciar**.
+- A instalação usa o fluxo NSIS visível (`isSilent=false`) com reabertura forçada do aplicativo ao concluir.
+- `autoInstallOnAppQuit` fica desativado para evitar instalações implícitas fora do fluxo controlado do app.
+- Durante `quitAndInstall`, o handler `window-all-closed` não antecipa `app.quit()`, deixando o updater concluir a sequência de encerramento e instalação.
+- Nenhuma alteração em CGUARD v4, Argon2id, Modo Extremo, associação `.cguard` ou interface oficial fixa.
+
 ## 1.6.2 — Fixed official interface
 
 - Remove a tela e o item de navegação **Aparência**, que haviam sido reintroduzidos indevidamente.

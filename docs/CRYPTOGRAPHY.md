@@ -2,7 +2,7 @@
 
 ## Escopo
 
-A v1.6.2 cria e lê somente o formato CGUARD v4. O formato foi desenhado para criptografia local por senha de arquivos e pastas. Transferência E2E entre usuários não faz parte desta versão.
+A v1.6.3 cria e lê somente o formato CGUARD v4. O formato foi desenhado para criptografia local por senha de arquivos e pastas. Transferência E2E entre usuários não faz parte desta versão.
 
 ## Primitivas
 

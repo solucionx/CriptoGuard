@@ -31,6 +31,26 @@ class DesktopIntegrationTests(unittest.TestCase):
         main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
         self.assertIn("isElevatedRelaunch ? true : app.requestSingleInstanceLock()", main)
 
+    def test_updater_uses_explicit_non_silent_restart_flow(self):
+        main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
+        preload = (ROOT / "src" / "preload.js").read_text(encoding="utf-8")
+        renderer = (ROOT / "src" / "renderer.js").read_text(encoding="utf-8")
+        self.assertIn("autoUpdater.autoInstallOnAppQuit = false", main)
+        self.assertIn("autoUpdater.autoRunAppAfterInstall = true", main)
+        self.assertIn("autoUpdater.quitAndInstall(false, true)", main)
+        self.assertNotIn("autoUpdater.quitAndInstall(true, true)", main)
+        self.assertIn("update-install", main)
+        self.assertIn("installUpdate", preload)
+        self.assertIn("Instalar e reiniciar", renderer)
+
+    def test_downloaded_update_does_not_force_immediate_shutdown(self):
+        main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
+        start = main.index("autoUpdater.on('update-downloaded'")
+        end = main.index("autoUpdater.on('error'", start)
+        downloaded_handler = main[start:end]
+        self.assertNotIn("installDownloadedUpdateWhenSafe()", downloaded_handler)
+        self.assertIn("updateReadyToInstall = true", downloaded_handler)
+
     def test_appearance_customization_is_removed(self):
         html = (ROOT / "src" / "index.html").read_text(encoding="utf-8")
         renderer = (ROOT / "src" / "renderer.js").read_text(encoding="utf-8")

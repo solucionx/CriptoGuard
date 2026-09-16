@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/CGUARD-v4-004676?style=for-the-badge" alt="CGUARD v4">
   <img src="https://img.shields.io/badge/Argon2id-KDF-006496?style=for-the-badge" alt="Argon2id">
   <img src="https://img.shields.io/badge/AES--256--GCM-Chunked-004676?style=for-the-badge" alt="AES-256-GCM">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.6.2-003061?style=for-the-badge" alt="Versão 1.6.2">
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-1.6.3-003061?style=for-the-badge" alt="Versão 1.6.3">
 </p>
 
 <p align="center"><strong>Criptografia local de arquivos e pastas para Windows.</strong><br>Seus arquivos. Sua privacidade. Seu controle.</p>
@@ -18,7 +18,7 @@
 
 ## Visão geral
 
-**Crypto Guard 1.6.2** usa a **identidade visual oficial fixa** e consolida o formato **CGUARD v4** e restaura a integração do Windows com arquivos `.cguard`. O aplicativo criptografa e descriptografa arquivos e pastas localmente; arquivos e senhas não são enviados para servidores durante o fluxo criptográfico.
+**Crypto Guard 1.6.3** usa a **identidade visual oficial fixa** e consolida o formato **CGUARD v4** e restaura a integração do Windows com arquivos `.cguard`. O aplicativo criptografa e descriptografa arquivos e pastas localmente; arquivos e senhas não são enviados para servidores durante o fluxo criptográfico.
 
 A v4 foi desenhada para reduzir erros comuns de formatos criptográficos próprios: nonce reutilizado, parâmetros KDF permissivos, parser ambíguo, metadados em claro, arquivos parciais tratados como válidos e operações GCM gigantes.
 
@@ -302,7 +302,7 @@ Detalhes: [`docs/UPDATE_SECURITY.md`](docs/UPDATE_SECURITY.md).
 O código é disponibilizado para transparência e auditoria sob os termos descritos em [`SOURCE_AVAILABLE_NOTICE.md`](SOURCE_AVAILABLE_NOTICE.md). O projeto permanece marcado como `UNLICENSED`; isso não equivale a uma licença open source.
 
 **Produto:** Crypto Guard  
-**Versão:** `1.6.2`  
+**Versão:** `1.6.3`  
 **Formato:** `CGUARD v4`  
 **Extensão:** `.cguard`  
 **App ID:** `com.solucionx.cryptoguard`  

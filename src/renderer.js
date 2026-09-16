@@ -451,6 +451,8 @@ $('decryptBtn').onclick = async () => {
   }
 };
 
+let updateReadyToInstall = false;
+
 function formatUpdateProgress(data) {
   const pct = Math.max(0, Math.min(100, Number(data?.percent || 0)));
   return `${pct.toFixed(pct >= 10 ? 0 : 1)}%`;
@@ -458,46 +460,96 @@ function formatUpdateProgress(data) {
 
 window.cryptoGuard.onUpdateStatus((data) => {
   const status = $('updateStatus');
-  if (!status || !data) return;
+  const button = $('checkUpdates');
+  if (!status || !button || !data) return;
   switch (data.status) {
     case 'checking':
+      updateReadyToInstall = false;
       status.textContent = 'Verificando…';
+      button.textContent = 'Verificando…';
+      button.disabled = true;
       break;
     case 'current':
+      updateReadyToInstall = false;
       status.textContent = `Atualizado · v${data.version || 'atual'}`;
+      button.textContent = 'Verificar atualização agora';
+      button.disabled = false;
       break;
     case 'available':
+      updateReadyToInstall = false;
       status.textContent = `v${data.version || 'nova'} encontrada · baixando`;
+      button.textContent = 'Baixando atualização…';
+      button.disabled = true;
       showToast('Atualização encontrada', `A versão ${data.version || 'mais recente'} será baixada automaticamente.`, 'loading', true);
       break;
     case 'downloading':
+      updateReadyToInstall = false;
       status.textContent = `Baixando atualização · ${formatUpdateProgress(data)}`;
+      button.textContent = `Baixando · ${formatUpdateProgress(data)}`;
+      button.disabled = true;
       break;
     case 'downloaded':
-      status.textContent = data.waitingForCrypto ? 'Atualização pronta · aguardando operação terminar' : 'Atualização pronta · instalando';
-      showToast('Atualização pronta', data.waitingForCrypto ? 'A instalação começará assim que a operação atual terminar.' : 'O Crypto Guard será reiniciado para concluir a atualização.', 'success', true);
+      updateReadyToInstall = true;
+      status.textContent = data.waitingForCrypto
+        ? 'Atualização pronta · finalize a operação atual'
+        : `Atualização pronta${data.version ? ` · v${data.version}` : ''}`;
+      button.textContent = data.waitingForCrypto ? 'Aguardando operação terminar' : 'Instalar e reiniciar';
+      button.disabled = !!data.waitingForCrypto;
+      showToast(
+        'Atualização pronta',
+        data.waitingForCrypto
+          ? 'Finalize a operação criptográfica atual; depois instale a atualização.'
+          : 'Clique em “Instalar e reiniciar”. O instalador será exibido e o Crypto Guard reabrirá ao concluir.',
+        'success',
+        true
+      );
       break;
     case 'installing':
       status.textContent = 'Instalando atualização…';
-      showToast('Atualizando Crypto Guard', 'Salvando o estado e reiniciando com a nova versão…', 'loading', true);
+      button.textContent = 'Instalando…';
+      button.disabled = true;
+      showToast('Atualizando Crypto Guard', 'O aplicativo será fechado, o instalador será executado e o Crypto Guard deverá reabrir ao concluir.', 'loading', true);
       break;
     case 'error':
-      status.textContent = 'Não foi possível verificar agora';
+      updateReadyToInstall = false;
+      status.textContent = data.message || 'Não foi possível verificar agora';
+      button.textContent = 'Tentar novamente';
+      button.disabled = false;
       break;
   }
 });
 
 $('checkUpdates').onclick = async () => {
-  $('updateStatus').textContent = 'Verificando…';
   try {
+    if (updateReadyToInstall) {
+      const result = await window.cryptoGuard.installUpdate();
+      if (!result?.ok && result?.reason === 'active-crypto-operation') {
+        $('updateStatus').textContent = 'Atualização pronta · finalize a operação atual';
+        $('checkUpdates').textContent = 'Aguardando operação terminar';
+        $('checkUpdates').disabled = true;
+      } else if (!result?.ok && result?.reason === 'no-downloaded-update') {
+        updateReadyToInstall = false;
+        $('checkUpdates').textContent = 'Verificar atualização agora';
+        $('checkUpdates').disabled = false;
+      }
+      return;
+    }
+
+    $('updateStatus').textContent = 'Verificando…';
     const result = await window.cryptoGuard.checkForUpdates();
     if (!result?.ok && result?.reason === 'development') {
       $('updateStatus').textContent = 'Disponível somente no app instalado';
+      $('checkUpdates').textContent = 'Verificar atualização agora';
+      $('checkUpdates').disabled = false;
     } else if (!result?.ok && result?.reason === 'unsupported-session') {
       $('updateStatus').textContent = 'Verificação adiada nesta sessão';
+      $('checkUpdates').textContent = 'Verificar atualização agora';
+      $('checkUpdates').disabled = false;
     }
   } catch {
     $('updateStatus').textContent = 'Não foi possível verificar agora';
+    $('checkUpdates').textContent = 'Tentar novamente';
+    $('checkUpdates').disabled = false;
   }
 };
 

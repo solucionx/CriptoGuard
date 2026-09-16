@@ -24,6 +24,8 @@ const activeJobs = new Map();
 let updateReadyToInstall = false;
 let updateInstallScheduled = false;
 let updateCheckInFlight = false;
+let updateDownloadedVersion = null;
+let isQuittingForUpdate = false;
 let mainWindow = null;
 let rendererReadyForOpenFiles = false;
 const pendingOpenFiles = [];
@@ -112,20 +114,34 @@ function updaterSupported() {
 }
 
 function installDownloadedUpdateWhenSafe() {
-  if (!updateReadyToInstall || updateInstallScheduled || activeJobs.size > 0) return false;
+  if (!updateReadyToInstall) return { ok: false, reason: 'no-downloaded-update' };
+  if (updateInstallScheduled) return { ok: true, alreadyRunning: true };
+  if (activeJobs.size > 0) {
+    broadcastUpdateStatus({
+      status: 'downloaded',
+      version: updateDownloadedVersion,
+      waitingForCrypto: true
+    });
+    return { ok: false, reason: 'active-crypto-operation' };
+  }
+
   updateInstallScheduled = true;
-  broadcastUpdateStatus({ status: 'installing', version: null });
+  isQuittingForUpdate = true;
+  broadcastUpdateStatus({ status: 'installing', version: updateDownloadedVersion });
+
   setTimeout(() => {
     try {
-      // isSilent=true; isForceRunAfter=true. A instalacao só é disparada quando
-      // nenhuma operação criptografica está ativa.
-      autoUpdater.quitAndInstall(true, true);
+      // Instalador visível (isSilent=false) + reabertura forçada. O modo silencioso
+      // podia encerrar o app sem tornar falhas do NSIS visíveis ao usuário e, em
+      // alguns cenários, não reabria o processo após a atualização.
+      autoUpdater.quitAndInstall(false, true);
     } catch (err) {
       updateInstallScheduled = false;
+      isQuittingForUpdate = false;
       broadcastUpdateStatus({ status: 'error', message: `Falha ao iniciar a atualização: ${err.message}` });
     }
-  }, 900);
-  return true;
+  }, 350);
+  return { ok: true };
 }
 
 async function checkForUpdates() {
@@ -150,7 +166,11 @@ function configureAutoUpdater() {
   if (!updaterSupported()) return;
 
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Baixa automaticamente, mas a instalação só ocorre após confirmação explícita.
+  // Isso evita fechar a aplicação inesperadamente e elimina a dependência do fluxo
+  // silencioso do NSIS para reiniciar o app.
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
   // O Crypto Guard publica instalador NSIS completo, nunca nsis-web.
@@ -177,8 +197,12 @@ function configureAutoUpdater() {
   });
   autoUpdater.on('update-downloaded', (info) => {
     updateReadyToInstall = true;
-    broadcastUpdateStatus({ status: 'downloaded', version: info?.version || null, waitingForCrypto: activeJobs.size > 0 });
-    installDownloadedUpdateWhenSafe();
+    updateDownloadedVersion = info?.version || null;
+    broadcastUpdateStatus({
+      status: 'downloaded',
+      version: updateDownloadedVersion,
+      waitingForCrypto: activeJobs.size > 0
+    });
   });
   autoUpdater.on('error', (err) => {
     broadcastUpdateStatus({ status: 'error', message: 'Não foi possível verificar ou baixar a atualização.' });
@@ -475,6 +499,7 @@ ipcMain.handle('consume-open-files', async (event) => {
 });
 ipcMain.handle('app-info', async () => ({ version: app.getVersion(), platform: process.platform, elevated: isProcessElevated(), packaged: app.isPackaged, developer: DEVELOPER, autoUpdate: updaterSupported() }));
 ipcMain.handle('update-check', async () => checkForUpdates());
+ipcMain.handle('update-install', async () => installDownloadedUpdateWhenSafe());
 ipcMain.handle('request-elevation', async () => launchElevatedCopy());
 
 ipcMain.handle('crypto-cancel', async (event) => {
@@ -550,7 +575,6 @@ ipcMain.handle('crypto-run', async (event, payload) => {
   } finally {
     activeJobs.delete(event.sender.id);
     try { fs.unlinkSync(cancelFile); } catch { /* arquivo pode não existir */ }
-    installDownloadedUpdateWhenSafe();
   }
 
   const cancelled = session.cancelRequested || results.some((r) => r.cancelled);
@@ -573,4 +597,8 @@ app.whenReady().then(() => {
   configureAutoUpdater();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => {
+  // Durante quitAndInstall o updater fecha as janelas antes de concluir sua própria
+  // sequência de encerramento. Não antecipe app.quit() nesse intervalo.
+  if (process.platform !== 'darwin' && !isQuittingForUpdate) app.quit();
+});
