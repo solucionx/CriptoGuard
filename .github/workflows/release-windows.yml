@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Versao a publicar (ex.: 1.5.0, sem o v)"
+        description: "Versao a publicar (ex.: 1.6.0, sem o v)"
         required: true
         type: string
       prerelease:
@@ -99,10 +99,16 @@ jobs:
 
       - name: Produce dependency inventories
         shell: pwsh
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
         run: |
           $ErrorActionPreference = "Stop"
-          npm sbom --sbom-format=cyclonedx | Out-File -Encoding utf8 release/npm-sbom.cdx.json
-          python -m pip inspect | Out-File -Encoding utf8 release/python-dependencies.json
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+          npm sbom --sbom-format=cyclonedx | Out-File -FilePath release/npm-sbom.cdx.json -Encoding utf8
+          python -X utf8 -m pip inspect | Out-File -FilePath release/python-dependencies.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao gerar inventario de dependencias Python." }
           function Get-Sha256Hex {
             param([Parameter(Mandatory = $true)][string]$Path)
             $resolved = (Resolve-Path $Path).Path
