@@ -19,7 +19,8 @@ $EngineDir = Join-Path $Root "engine"
 $BuildDir = Join-Path $Root ".build\pyinstaller"
 $SpecDir = Join-Path $BuildDir "spec"
 $WorkDir = Join-Path $BuildDir "work"
-$Engine = Join-Path $EngineDir "crypto_guard_engine.exe"
+$EngineBundle = Join-Path $EngineDir "crypto_guard_engine"
+$Engine = Join-Path $EngineBundle "crypto_guard_engine.exe"
 
 foreach ($RequiredFile in @($Requirements, $BuildRequirements, $BridgeFile, $IconFile, $VersionFile)) {
     if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
@@ -47,14 +48,15 @@ Remove-Item -LiteralPath $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $EngineDir | Out-Null
 New-Item -ItemType Directory -Force -Path $SpecDir | Out-Null
 New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
-Remove-Item -LiteralPath $Engine -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $EngineDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $EngineDir | Out-Null
 
 Write-Host "[Crypto Guard] Gerando motor criptografico autonomo..." -ForegroundColor Cyan
 $PyInstallerArgs = @(
     "-m", "PyInstaller",
     "--noconfirm",
     "--clean",
-    "--onefile",
+    "--onedir",
     "--console",
     "--name", "crypto_guard_engine",
     "--icon", $IconFile,
@@ -72,12 +74,16 @@ $PyInstallerArgs = @(
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller falhou ao gerar o motor criptografico." }
 
 if (-not (Test-Path -LiteralPath $Engine -PathType Leaf)) {
-    throw "O PyInstaller nao gerou engine\crypto_guard_engine.exe."
+    throw "O PyInstaller nao gerou engine\crypto_guard_engine\crypto_guard_engine.exe."
 }
 
 $EngineSize = (Get-Item -LiteralPath $Engine).Length
-if ($EngineSize -lt 1MB) {
-    throw "O motor gerado parece invalido (arquivo muito pequeno: $EngineSize bytes)."
+if ($EngineSize -lt 128KB) {
+    throw "O executavel do motor gerado parece invalido (arquivo muito pequeno: $EngineSize bytes)."
+}
+$BundleSize = (Get-ChildItem -LiteralPath $EngineBundle -Recurse -File | Measure-Object -Property Length -Sum).Sum
+if ($BundleSize -lt 5MB) {
+    throw "O bundle do motor parece incompleto (tamanho total: $BundleSize bytes)."
 }
 
-Write-Host "[Crypto Guard] Engine pronto: $Engine" -ForegroundColor Green
+Write-Host "[Crypto Guard] Engine onedir pronto: $Engine" -ForegroundColor Green
