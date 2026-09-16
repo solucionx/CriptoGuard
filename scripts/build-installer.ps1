@@ -22,7 +22,7 @@ if ($env:OS -ne "Windows_NT") {
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor DarkBlue
-Write-Host " Crypto Guard 1.6.3 - Build Auto Update" -ForegroundColor Blue
+Write-Host " Crypto Guard 1.6.5 - Build Auto Update" -ForegroundColor Blue
 Write-Host " Desenvolvido pela Solucionx" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor DarkBlue
 Write-Host ""
@@ -32,7 +32,7 @@ Write-Host ""
 
 # 2) Smoke test do engine compilado, incluindo Argon2id/CFFI no bundle.
 $VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
-& $VenvPython (Join-Path $Root "scripts\smoke-engine.py") (Join-Path $Root "engine\crypto_guard_engine.exe")
+& $VenvPython (Join-Path $Root "scripts\smoke-engine.py") (Join-Path $Root "engine\crypto_guard_engine\crypto_guard_engine.exe")
 if ($LASTEXITCODE -ne 0) { throw "Smoke test do engine CGUARD v4 falhou." }
 
 # 3) Dependências Electron fixadas no package-lock.
@@ -57,6 +57,16 @@ foreach ($File in @($Installer, $Latest, $Blockmap)) {
         throw "Artefato de atualização não encontrado: $File"
     }
 }
+
+# Verifica se o bundle do motor foi realmente incorporado ao app antes de
+# apagar win-unpacked. Isso evita publicar um instalador sem backend.
+$PackedEngine = Join-Path $Root "release\win-unpacked\resources\engine\crypto_guard_engine\crypto_guard_engine.exe"
+if (-not (Test-Path -LiteralPath $PackedEngine -PathType Leaf)) {
+    throw "O app empacotado nao contem o motor criptografico esperado: $PackedEngine"
+}
+$PackedEngineDir = Split-Path -Parent $PackedEngine
+$PackedBundleSize = (Get-ChildItem -LiteralPath $PackedEngineDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
+if ($PackedBundleSize -lt 5MB) { throw "Bundle criptografico empacotado parece incompleto: $PackedBundleSize bytes." }
 
 # win-unpacked é artefato de trabalho; não entra na Release.
 Get-ChildItem .\release -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force

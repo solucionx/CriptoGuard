@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "python"))
 
 from cryptoguard import CryptoError, decrypt_path, encrypt_path  # noqa: E402
 from cryptoguard import container_v4  # noqa: E402
-from cryptoguard.secure_delete import overwrite_file, shred_and_delete, validate_shred_passes  # noqa: E402
+from cryptoguard.secure_delete import overwrite_file, preflight_shred_target, shred_and_delete, validate_shred_passes  # noqa: E402
 
 
 class ExtremeModeTests(unittest.TestCase):
@@ -54,6 +54,69 @@ class ExtremeModeTests(unittest.TestCase):
         (folder / "sub" / "b.bin").write_bytes(b"B" * 2048)
         shred_and_delete(folder, passes=1)
         self.assertFalse(folder.exists())
+
+
+    def test_extreme_mode_rejects_protected_installation_tree(self) -> None:
+        protected = self.tmp / "installed" / "CryptoGuard"
+        engine = protected / "resources" / "engine" / "crypto_guard_engine.exe"
+        engine.parent.mkdir(parents=True)
+        engine.write_bytes(b"engine")
+
+        with self.assertRaises(CryptoError):
+            preflight_shred_target(protected, protected_roots=[protected])
+        with self.assertRaises(CryptoError):
+            preflight_shred_target(protected.parent, protected_roots=[protected])
+
+    def test_extreme_mode_rejects_symlink_or_reparse_escape_before_writing(self) -> None:
+        source = self.tmp / "source-tree"
+        source.mkdir()
+        protected = self.tmp / "installed-engine"
+        protected.mkdir()
+        engine = protected / "crypto_guard_engine.exe"
+        engine.write_bytes(b"engine-safe")
+        link = source / "escape"
+        try:
+            link.symlink_to(protected, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink não disponível neste ambiente")
+
+        with self.assertRaises(CryptoError):
+            preflight_shred_target(source, protected_roots=[protected])
+        self.assertEqual(engine.read_bytes(), b"engine-safe")
+
+    def test_extreme_mode_rejects_hardlinked_file(self) -> None:
+        original = self.tmp / "outside.bin"
+        original.write_bytes(b"do-not-touch")
+        source = self.tmp / "hardlink-tree"
+        source.mkdir()
+        alias = source / "alias.bin"
+        try:
+            alias.hardlink_to(original)
+        except (OSError, NotImplementedError):
+            self.skipTest("Hard links não disponíveis neste ambiente")
+
+        with self.assertRaises(CryptoError):
+            preflight_shred_target(source)
+        self.assertEqual(original.read_bytes(), b"do-not-touch")
+
+
+    def test_encrypt_extreme_preflight_runs_before_container_creation(self) -> None:
+        protected = self.tmp / "install"
+        protected.mkdir()
+        source = protected / "data.bin"
+        source.write_bytes(b"safe")
+        with self.fast, patch("cryptoguard.engine.create_container_temp") as create_container:
+            with self.assertRaises(CryptoError):
+                encrypt_path(
+                    source,
+                    self.PASSWORD,
+                    delete_original=True,
+                    advanced_mode=True,
+                    shred_passes=1,
+                    protected_roots=[protected],
+                )
+        create_container.assert_not_called()
+        self.assertEqual(source.read_bytes(), b"safe")
 
     def test_extreme_mode_round_trip_keeps_verified_container(self) -> None:
         source = self.tmp / "secret.bin"
@@ -117,6 +180,26 @@ class ExtremeModeTests(unittest.TestCase):
                 )
         self.assertTrue(source.exists())
         self.assertTrue((self.tmp / "locked.txt.cguard").exists())
+
+    def test_extreme_failure_leaves_verified_status_journal(self) -> None:
+        import json
+        source = self.tmp / "journal.txt"
+        source.write_text("still here", encoding="utf-8")
+        status = self.tmp / "status.json"
+        with self.fast, patch("cryptoguard.engine.shred_and_delete", side_effect=CryptoError("blocked")):
+            with self.assertRaises(CryptoError):
+                encrypt_path(
+                    source,
+                    self.PASSWORD,
+                    delete_original=True,
+                    advanced_mode=True,
+                    shred_passes=1,
+                    status_file=status,
+                )
+        state = json.loads(status.read_text(encoding="ascii"))
+        self.assertEqual(state["phase"], "container_verified")
+        self.assertTrue(Path(state["output"]).exists())
+        self.assertTrue(source.exists())
 
 
 if __name__ == "__main__":

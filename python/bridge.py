@@ -9,8 +9,12 @@ from cryptoguard import CryptoCancelled, CryptoError, decrypt_path, encrypt_path
 
 
 def emit(payload: dict) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
-    sys.stdout.flush()
+    # Protocolo IPC deliberadamente ASCII-only. O executável PyInstaller pode
+    # herdar páginas de código legadas no Windows; escapar Unicode impede
+    # mojibake e mantém cada linha JSON parseável independentemente do locale.
+    encoded = (json.dumps(payload, ensure_ascii=True, separators=(",", ":")) + "\n").encode("ascii")
+    sys.stdout.buffer.write(encoded)
+    sys.stdout.buffer.flush()
 
 
 def _permission_details(exc: BaseException) -> tuple[bool, str | None]:
@@ -59,6 +63,44 @@ def _emit_error(exc: BaseException, *, prefix: str = "") -> None:
     emit(payload)
 
 
+
+
+def _protected_roots_from_request(request: dict) -> list[Path]:
+    roots: list[Path] = []
+    raw = request.get("protected_paths", [])
+    if isinstance(raw, list):
+        for value in raw[:16]:
+            if not isinstance(value, str) or not value.strip():
+                continue
+            try:
+                roots.append(Path(value).expanduser().resolve(strict=True))
+            except (OSError, RuntimeError):
+                continue
+
+    # Defesa independente do Electron: numa build PyInstaller onedir, o motor
+    # conhece seu próprio executável. Protegemos o bundle, resources e a raiz
+    # instalada mesmo que o chamador omita protected_paths.
+    if getattr(sys, "frozen", False):
+        try:
+            exe = Path(sys.executable).resolve(strict=True)
+            current = exe.parent
+            for _ in range(4):
+                roots.append(current)
+                if current.parent == current:
+                    break
+                current = current.parent
+        except (OSError, RuntimeError):
+            pass
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        key = str(root).casefold()
+        if key not in seen:
+            seen.add(key)
+            unique.append(root)
+    return unique
+
 def main() -> None:
     try:
         request = json.load(sys.stdin)
@@ -78,6 +120,9 @@ def main() -> None:
         allow_cancel = bool(request.get("allow_cancel", True))
         cancel_file_raw = request.get("cancel_file")
         cancel_file = Path(str(cancel_file_raw)) if cancel_file_raw else None
+        status_file_raw = request.get("status_file")
+        status_file = Path(str(status_file_raw)) if status_file_raw else None
+        protected_roots = _protected_roots_from_request(request)
 
         def progress(processed: int, total: int, stage: str) -> None:
             if allow_cancel and cancel_file is not None and cancel_file.exists():
@@ -92,6 +137,8 @@ def main() -> None:
                 advanced_mode=advanced_mode,
                 shred_passes=shred_passes,
                 progress_callback=progress,
+                status_file=status_file,
+                protected_roots=protected_roots,
             )
         elif action == "decrypt":
             result = decrypt_path(

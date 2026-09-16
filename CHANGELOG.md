@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.6.5 — Extreme-mode self-protection
+
+- Corrige uma regressão crítica observada apenas no **Modo Extremo**, na qual o bundle do motor podia desaparecer após uma operação destrutiva.
+- O Modo Extremo agora faz **preflight completo antes de qualquer sobrescrita**.
+- Bloqueia seleção da pasta de instalação do Crypto Guard, seus pais e seus descendentes protegidos.
+- Rejeita symlinks, Windows junctions/reparse points e hard links antes de sobrescrever qualquer byte.
+- Garante que todos os arquivos sobrescritos permaneçam dentro da árvore explicitamente selecionada.
+- O engine PyInstaller protege a própria instalação mesmo se o chamador omitir a lista de caminhos protegidos.
+- O Electron passa explicitamente a raiz instalada, `resources` e o executável do motor como caminhos protegidos.
+- O smoke test do Windows agora executa uma criptografia real de **pasta em Modo Extremo** e compara o manifesto SHA-256 completo do bundle do motor antes/depois. A Release falha se o modo extremo tocar no motor.
+- Mantém CGUARD v4, Argon2id, HKDF-SHA-256, AES-256-GCM em chunks, updater, associação `.cguard` e identidade visual atual.
+
+## 1.6.4 — Large-folder / engine reliability
+
+- Corrige a comunicação do motor criptográfico para JSON ASCII-only, evitando corrupção de acentos por páginas de código legadas do Windows.
+- Troca o motor PyInstaller de `onefile` para `onedir`, reduzindo autoextração temporária e melhorando a estabilidade do backend empacotado.
+- O build agora falha se o bundle do motor não estiver realmente presente dentro de `win-unpacked/resources` antes de gerar a Release.
+- Adiciona journal transacional local: se o motor for interrompido depois de o `.cguard` ter sido criado e verificado, a interface informa explicitamente que o contêiner foi confirmado e que a remoção do original não foi concluída.
+- Erros de encerramento do motor agora incluem diagnóstico real (stderr/código de saída), em vez do genérico “Resposta inválida do motor criptográfico”.
+- Adiciona verificação preventiva de espaço livre. Pastas exigem margem para o ZIP temporário e o CGUARD coexistirem durante a operação.
+- Mensagem de motor ausente agora diferencia instalação incompleta de possível remoção/quarentena por software de segurança.
+- Preserva CGUARD v4, Argon2id, AES-256-GCM em chunks, HKDF, Modo Extremo, associação `.cguard`, auto-update e interface oficial fixa.
+
 ## 1.6.3 — Auto-update restart reliability
 
 - Corrige o fluxo em que a atualização era instalada em modo NSIS silencioso e o Crypto Guard podia fechar sem reabrir.

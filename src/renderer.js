@@ -392,12 +392,17 @@ $('encryptBtn').onclick = async () => {
     let okCount = 0;
     for (const r of results) { pushActivity({ action: 'encrypt', name: baseName(r.path), ok: r.ok, error: r.ok ? null : r.error }); if (r.ok) okCount++; }
     const permissionFailures = results.filter((r) => !r.ok && r.errorCode === 'permission_denied');
+    const engineFailures = results.filter((r) => !r.ok && ['engine_missing', 'engine_no_result', 'engine_interrupted_after_verify', 'engine_integrity_lost'].includes(r.errorCode));
     if (cancelled) {
       showToast('Operação cancelada', `${okCount} item(ns) concluído(s) antes do cancelamento.`, 'error');
       showResult('Operação cancelada', 'O processamento foi interrompido em um ponto seguro. Resultados temporários da operação atual foram removidos.', false);
     } else if (permissionFailures.length) {
       showToast('Permissão necessária', 'O Windows bloqueou o acesso a pelo menos um item.', 'error');
       await offerElevation('encrypt', permissionFailures);
+    } else if (engineFailures.length) {
+      const first = engineFailures[0];
+      showToast('Motor criptográfico interrompido', first.error, 'error');
+      showResult('Motor criptográfico precisa de atenção', first.error, false);
     } else if (okCount === requested) {
       showToast('Concluído', `${okCount} item(ns) protegido(s) com sucesso.`, 'success');
       showResult('Arquivos protegidos', `${okCount} de ${requested} item(ns) foram criptografados e verificados com sucesso.`);
@@ -428,12 +433,17 @@ $('decryptBtn').onclick = async () => {
     let okCount = 0;
     for (const r of results) { pushActivity({ action: 'decrypt', name: baseName(r.path), ok: r.ok, error: r.ok ? null : r.error }); if (r.ok) okCount++; }
     const permissionFailures = results.filter((r) => !r.ok && r.errorCode === 'permission_denied');
+    const engineFailures = results.filter((r) => !r.ok && ['engine_missing', 'engine_no_result'].includes(r.errorCode));
     if (cancelled) {
       showToast('Operação cancelada', `${okCount} item(ns) concluído(s) antes do cancelamento.`, 'error');
       showResult('Operação cancelada', 'O arquivo criptografado foi preservado quando a restauração atual não chegou ao fim.', false);
     } else if (permissionFailures.length) {
       showToast('Permissão necessária', 'O Windows bloqueou o acesso a pelo menos um item.', 'error');
       await offerElevation('decrypt', permissionFailures);
+    } else if (engineFailures.length) {
+      const first = engineFailures[0];
+      showToast('Motor criptográfico indisponível', first.error, 'error');
+      showResult('Motor criptográfico precisa de atenção', first.error, false);
     } else if (okCount === requested) {
       showToast('Restaurado', `${okCount} item(ns) restaurado(s) com sucesso.`, 'success');
       showResult('Conteúdo restaurado', `${okCount} de ${requested} item(ns) foram autenticados e restaurados com sucesso.`);

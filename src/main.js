@@ -302,8 +302,8 @@ function pythonDir() {
 
 function enginePath() {
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'engine', 'crypto_guard_engine.exe')
-    : path.join(__dirname, '..', 'engine', 'crypto_guard_engine.exe');
+    ? path.join(process.resourcesPath, 'engine', 'crypto_guard_engine', 'crypto_guard_engine.exe')
+    : path.join(__dirname, '..', 'engine', 'crypto_guard_engine', 'crypto_guard_engine.exe');
 }
 
 function pythonCandidates() {
@@ -366,11 +366,22 @@ function launchElevatedCopy() {
   });
 }
 
-function spawnBackend(command, args, payload, onProgress, { retryable = false, onRetry = null } = {}) {
+function readOperationStatus(statusFile) {
+  if (!statusFile) return null;
+  try {
+    const raw = fs.readFileSync(statusFile, 'ascii');
+    const data = JSON.parse(raw);
+    return data && typeof data === 'object' ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function spawnBackend(command, args, payload, onProgress, { retryable = false, onRetry = null, recoveryStatusFile = null } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
-      env: { ...process.env, PYTHONUTF8: '1' }
+      env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
     });
 
     let stderr = '';
@@ -408,11 +419,29 @@ function spawnBackend(command, args, payload, onProgress, { retryable = false, o
       }
       if (!settled) { settled = true; reject(err); }
     });
-    child.once('close', () => {
+    child.once('close', (code, signal) => {
       if (!started || settled) return;
       if (buffer.trim()) handleLine(buffer);
       settled = true;
-      if (!finalResult) return reject(new Error(stderr || 'Resposta inválida do motor criptográfico.'));
+      if (!finalResult) {
+        const status = readOperationStatus(recoveryStatusFile);
+        if (status?.phase === 'complete' && status.output) {
+          return resolve({ type: 'result', ok: true, result: status.output, recovered: true });
+        }
+        if (status?.phase === 'container_verified' && status.output) {
+          const err = new Error(
+            `O motor foi interrompido depois de criar e verificar o contêiner em ${status.output}. ` +
+            'A remoção do original não foi confirmada; preserve o original até testar a restauração do .cguard.'
+          );
+          err.code = 'engine_interrupted_after_verify';
+          err.recoveredOutput = status.output;
+          return reject(err);
+        }
+        const diagnostics = stderr.trim() || `Motor encerrado sem resposta final (código ${code ?? 'desconhecido'}${signal ? `, sinal ${signal}` : ''}).`;
+        const err = new Error(diagnostics);
+        err.code = 'engine_no_result';
+        return reject(err);
+      }
       if (!finalResult.ok) {
         const err = new Error(finalResult.error || stderr || 'Falha no motor criptográfico.');
         err.cancelled = !!finalResult.cancelled;
@@ -425,15 +454,15 @@ function spawnBackend(command, args, payload, onProgress, { retryable = false, o
   });
 }
 
-function runBridge(payload, onProgress) {
+function runBridge(payload, onProgress, { recoveryStatusFile = null } = {}) {
   // Na versão distribuída não há Python externo: o engine PyInstaller viaja
   // nos recursos do aplicativo instalado e é carregado pelo Electron.
   if (app.isPackaged) {
     const engine = enginePath();
     if (!fs.existsSync(engine)) {
-      return Promise.reject(new Error('Motor criptográfico interno não encontrado. Reinstale o Crypto Guard pela Release oficial.'));
+      return Promise.reject(Object.assign(new Error('Motor criptográfico interno não encontrado. A instalação pode estar incompleta ou o arquivo pode ter sido removido/quarentenado por software de segurança. Reinstale o Crypto Guard pela Release oficial e confira o Histórico de proteção do Windows.'), { code: 'engine_missing' }));
     }
-    return spawnBackend(engine, [], payload, onProgress);
+    return spawnBackend(engine, [], payload, onProgress, { recoveryStatusFile });
   }
 
   const bridge = path.join(pythonDir(), 'bridge.py');
@@ -448,6 +477,7 @@ function runBridge(payload, onProgress) {
       const args = path.basename(command).toLowerCase() === 'py' ? ['-3', bridge] : [bridge];
       spawnBackend(command, args, payload, onProgress, {
         retryable: true,
+        recoveryStatusFile,
         onRetry: (err) => { lastError = err; tryNext(); }
       }).then(resolve).catch(reject);
     };
@@ -534,6 +564,7 @@ ipcMain.handle('crypto-run', async (event, payload) => {
   try {
     for (let i = 0; i < paths.length; i++) {
       if (session.cancelRequested) break;
+      const statusFile = path.join(os.tmpdir(), `crypto-guard-status-${crypto.randomUUID()}.json`);
       const itemPayload = {
         action: payload.action,
         path: paths[i],
@@ -543,7 +574,11 @@ ipcMain.handle('crypto-run', async (event, payload) => {
         advanced_mode: !!payload.advancedMode,
         shred_passes: [1, 2, 3, 7].includes(payload.shredPasses) ? payload.shredPasses : 2,
         allow_cancel: session.cancellable,
-        cancel_file: cancelFile
+        cancel_file: cancelFile,
+        status_file: payload.action === 'encrypt' ? statusFile : null,
+        protected_paths: app.isPackaged
+          ? [path.dirname(process.execPath), process.resourcesPath, enginePath()]
+          : []
       };
       try {
         const data = await runBridge(itemPayload, ({ processed, total, stage }) => {
@@ -560,11 +595,22 @@ ipcMain.handle('crypto-run', async (event, payload) => {
             fraction: (i + itemFraction) / paths.length,
             cancellable: session.cancellable
           });
-        });
-        results.push({ ok: true, path: paths[i], result: data.result });
+        }, { recoveryStatusFile: statusFile });
+        if (payload.action === 'encrypt' && payload.advancedMode && app.isPackaged && !fs.existsSync(enginePath())) {
+          const err = new Error('Proteção crítica acionada: o motor criptográfico não foi encontrado após o modo extremo. O original não deve ser processado novamente até reinstalar o Crypto Guard.');
+          err.code = 'engine_integrity_lost';
+          throw err;
+        }
+        results.push({ ok: true, path: paths[i], result: data.result, recovered: !!data.recovered });
       } catch (err) {
-        results.push({ ok: false, cancelled: !!err.cancelled, path: paths[i], error: err.message, errorCode: err.code || 'crypto_error', permissionPath: err.permissionPath || null });
+        results.push({
+          ok: false, cancelled: !!err.cancelled, path: paths[i], error: err.message,
+          errorCode: err.code || 'crypto_error', permissionPath: err.permissionPath || null,
+          recoveredOutput: err.recoveredOutput || null
+        });
         if (err.cancelled || session.cancelRequested) break;
+      } finally {
+        try { fs.unlinkSync(statusFile); } catch { /* journal pode não existir */ }
       }
       event.sender.send('crypto-progress', {
         index: i + 1, totalItems: paths.length, itemPath: paths[i], itemName: path.basename(paths[i]),

@@ -1,0 +1,5 @@
+After uploading these v1.6.5 files, the old documentation file can be deleted from the repository:
+
+docs/VALIDATION_1.6.4.md
+
+It is documentation only; leaving it temporarily does not affect the application build.

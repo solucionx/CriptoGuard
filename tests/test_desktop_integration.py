@@ -63,6 +63,40 @@ class DesktopIntegrationTests(unittest.TestCase):
         self.assertNotIn('resetAppearance', renderer)
 
 
+    def test_engine_uses_onedir_bundle_and_packaging_guard(self):
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
+        build_engine = (ROOT / "scripts" / "build-engine.ps1").read_text(encoding="utf-8")
+        build_installer = (ROOT / "scripts" / "build-installer.ps1").read_text(encoding="utf-8")
+        resource = next(item for item in package["build"]["extraResources"] if "crypto_guard_engine" in item.get("from", ""))
+        self.assertEqual(resource["from"], "engine/crypto_guard_engine")
+        self.assertIn("engine', 'crypto_guard_engine', 'crypto_guard_engine.exe", main)
+        self.assertIn('"--onedir"', build_engine)
+        self.assertNotIn('"--onefile"', build_engine)
+        self.assertIn("PackedEngine", build_installer)
+
+
+    def test_extreme_mode_passes_installation_protection_to_engine(self):
+        main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
+        bridge = (ROOT / "python" / "bridge.py").read_text(encoding="utf-8")
+        smoke = (ROOT / "scripts" / "smoke-engine.py").read_text(encoding="utf-8")
+        self.assertIn("protected_paths", main)
+        self.assertIn("process.resourcesPath", main)
+        self.assertIn("_protected_roots_from_request", bridge)
+        self.assertIn('getattr(sys, "frozen", False)', bridge)
+        self.assertIn("advanced_mode", smoke)
+        self.assertIn("bundle_manifest", smoke)
+
+    def test_engine_protocol_has_ascii_json_and_recovery_journal(self):
+        bridge = (ROOT / "python" / "bridge.py").read_text(encoding="utf-8")
+        main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
+        self.assertIn("ensure_ascii=True", bridge)
+        self.assertIn('encode("ascii")', bridge)
+        self.assertIn("status_file", bridge)
+        self.assertIn("engine_interrupted_after_verify", main)
+        self.assertIn("crypto-guard-status-", main)
+        self.assertIn("PYTHONIOENCODING: 'utf-8'", main)
+
 
 if __name__ == "__main__":
     unittest.main()

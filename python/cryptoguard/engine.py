@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -13,9 +14,58 @@ from .container_v4 import create_container_temp, decrypt_container_to_temp, veri
 from .errors import CryptoError
 from .format_v4 import build_metadata
 from .io_utils import atomic_replace, fsync_directory
-from .secure_delete import shred_and_delete, validate_shred_passes
+from .secure_delete import preflight_shred_target, shred_and_delete, validate_shred_passes
 
 ProgressCallback = Callable[[int, int, str], None]
+
+
+_DISK_RESERVE_BYTES = 256 * 1024 * 1024
+
+
+def _write_status(status_file: Path | None, payload: dict) -> None:
+    if status_file is None:
+        return
+    try:
+        status_file = status_file.expanduser()
+        status_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = status_file.with_name(status_file.name + ".tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=True, separators=(",", ":")), encoding="ascii")
+        os.replace(tmp, status_file)
+    except OSError:
+        # O journal melhora recuperacao/diagnostico, mas nunca deve enfraquecer
+        # a operacao criptografica principal.
+        pass
+
+
+def _directory_logical_size(source: Path) -> int:
+    total = 0
+    for item in source.rglob("*"):
+        if item.is_symlink():
+            raise CryptoError(f"Link simbólico não é suportado por segurança: {item}")
+        if item.is_file():
+            try:
+                total += item.stat().st_size
+            except OSError as exc:
+                raise CryptoError(f"Não foi possível inspecionar o tamanho de {item}: {exc}") from exc
+    return total
+
+
+def _ensure_working_space(parent: Path, payload_size: int, *, directory: bool) -> None:
+    try:
+        free = shutil.disk_usage(parent).free
+    except OSError:
+        return
+    # Pasta precisa coexistir como ZIP temporario + CGUARD temporario. Para
+    # arquivo comum basta o CGUARD. Reserva adicional cobre metadata/overhead.
+    multiplier = 2 if directory else 1
+    required = payload_size * multiplier + _DISK_RESERVE_BYTES
+    if free < required:
+        need_gib = required / (1024 ** 3)
+        free_gib = free / (1024 ** 3)
+        raise CryptoError(
+            f"Espaço livre insuficiente para concluir a operação com segurança. "
+            f"Necessário aproximadamente {need_gib:.2f} GiB; disponível {free_gib:.2f} GiB."
+        )
 
 
 def _validate_password(password: str, *, for_encryption: bool = False) -> None:
@@ -37,6 +87,8 @@ def encrypt_path(
     advanced_mode: bool = False,
     shred_passes: int = DEFAULT_SHRED_PASSES,
     progress_callback: ProgressCallback | None = None,
+    status_file: Path | None = None,
+    protected_roots: list[Path] | tuple[Path, ...] | None = None,
 ) -> Path:
     """Cria um CGUARD v4 e faz round-trip completo antes de remover a origem.
 
@@ -56,9 +108,33 @@ def encrypt_path(
     if source.name.lower().endswith(EXTENSION):
         raise CryptoError("O item selecionado já parece ser um contêiner Crypto Guard.")
 
+    # O modo extremo é destrutivo. Antes de criar qualquer contêiner ou escrever
+    # qualquer byte, validamos a árvore inteira contra junctions/reparse points,
+    # hard links e caminhos protegidos da instalação/motor.
+    if advanced_mode:
+        preflight_shred_target(source, protected_roots=protected_roots)
+
     output = source.with_name(source.name + EXTENSION)
     if output.exists():
         raise CryptoError(f"O destino já existe: {output}")
+
+    _write_status(status_file, {
+        "phase": "started",
+        "source": str(source),
+        "output": str(output),
+        "delete_original": bool(delete_original),
+        "advanced_mode": bool(advanced_mode),
+    })
+
+    if source.is_file():
+        try:
+            source_size = source.stat().st_size
+        except OSError as exc:
+            raise CryptoError(f"Não foi possível ler o tamanho do arquivo: {exc}") from exc
+        _ensure_working_space(source.parent, source_size, directory=False)
+    elif source.is_dir():
+        logical_size_estimate = _directory_logical_size(source)
+        _ensure_working_space(source.parent, logical_size_estimate, directory=True)
 
     archive_path: Path | None = None
     container_temp: Path | None = None
@@ -109,6 +185,13 @@ def encrypt_path(
 
         atomic_replace(container_temp, output)
         container_temp = None
+        _write_status(status_file, {
+            "phase": "container_verified",
+            "source": str(source),
+            "output": str(output),
+            "delete_original": bool(delete_original),
+            "advanced_mode": bool(advanced_mode),
+        })
 
         # Em pastas, o ZIP temporário contém plaintext. No modo extremo ele é
         # sobrescrito antes de seguirmos para a remoção da árvore original.
@@ -155,6 +238,14 @@ def encrypt_path(
                     raise CryptoError(
                         f"O contêiner foi criado e verificado em {output}, mas o original não pôde ser removido: {exc}"
                     ) from exc
+        _write_status(status_file, {
+            "phase": "complete",
+            "source": str(source),
+            "output": str(output),
+            "delete_original": bool(delete_original),
+            "advanced_mode": bool(advanced_mode),
+            "original_exists": source.exists(),
+        })
         return output
     finally:
         if container_temp is not None:

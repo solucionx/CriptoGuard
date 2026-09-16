@@ -1,6 +1,6 @@
 {
   "name": "crypto-guard-desktop",
-  "version": "1.6.3",
+  "version": "1.6.5",
   "description": "Crypto Guard — criptografia local auditável de arquivos e pastas para Windows. Desenvolvido pela Solucionx.",
   "main": "src/main.js",
   "private": true,
@@ -34,8 +34,8 @@
     "asar": true,
     "extraResources": [
       {
-        "from": "engine/crypto_guard_engine.exe",
-        "to": "engine/crypto_guard_engine.exe"
+        "from": "engine/crypto_guard_engine",
+        "to": "engine/crypto_guard_engine"
       },
       {
         "from": "build/icon.png",
