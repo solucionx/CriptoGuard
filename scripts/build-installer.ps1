@@ -22,9 +22,7 @@ if ($env:OS -ne "Windows_NT") {
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor DarkBlue
-$Package = Get-Content (Join-Path $Root "package.json") -Raw | ConvertFrom-Json
-$Version = [string]$Package.version
-Write-Host " Crypto Guard $Version - Build Windows" -ForegroundColor Blue
+Write-Host " Crypto Guard 1.6.0 - Build Auto Update" -ForegroundColor Blue
 Write-Host " Desenvolvido pela Solucionx" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor DarkBlue
 Write-Host ""
@@ -32,7 +30,12 @@ Write-Host ""
 # 1) Motor Python autônomo
 & (Join-Path $PSScriptRoot "build-engine.ps1")
 
-# 2) Dependências Electron fixadas no package-lock.
+# 2) Smoke test do engine compilado, incluindo Argon2id/CFFI no bundle.
+$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
+& $VenvPython (Join-Path $Root "scripts\smoke-engine.py") (Join-Path $Root "engine\crypto_guard_engine.exe")
+if ($LASTEXITCODE -ne 0) { throw "Smoke test do engine CGUARD v4 falhou." }
+
+# 3) Dependências Electron fixadas no package-lock.
 if (-not (Test-Path (Join-Path $Root "node_modules\electron\dist\electron.exe"))) {
     Write-Host "[Crypto Guard] Instalando dependências Electron..." -ForegroundColor Cyan
     if (-not (Test-Path (Join-Path $Root "package-lock.json"))) { throw "package-lock.json ausente." }
@@ -40,7 +43,7 @@ if (-not (Test-Path (Join-Path $Root "node_modules\electron\dist\electron.exe"))
     if ($LASTEXITCODE -ne 0) { throw "npm ci falhou." }
 }
 
-# 3) NSIS per-user. Esse target gera latest.yml e blockmap usados pelo electron-updater.
+# 4) NSIS per-user. Esse target gera latest.yml e blockmap usados pelo electron-updater.
 Remove-Item .\release -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "[Crypto Guard] Gerando instalador NSIS autoatualizável..." -ForegroundColor Cyan
 & npx electron-builder --win nsis --x64 --publish never

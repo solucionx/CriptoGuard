@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $Root
@@ -63,6 +63,8 @@ $PyInstallerArgs = @(
     "--workpath", $WorkDir,
     "--specpath", $SpecDir,
     "--paths", (Join-Path $Root "python"),
+    "--collect-all", "argon2",
+    "--collect-all", "_argon2_cffi_bindings",
     $BridgeFile
 )
 

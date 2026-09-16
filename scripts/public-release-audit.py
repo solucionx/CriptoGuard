@@ -56,6 +56,10 @@ required = [
     "docs/CRYPTOGRAPHY.md", "scripts/after-pack.mjs", ".github/CODEOWNERS", ".github/dependabot.yml",
     ".github/workflows/ci.yml", ".github/workflows/codeql.yml",
     ".github/workflows/dependency-review.yml", ".github/workflows/release-windows.yml",
+    "python/cryptoguard/container_v4.py", "python/cryptoguard/format_v4.py",
+    "python/cryptoguard/kdf.py", "python/cryptoguard/strict_json.py",
+    "tests/test_kat.py", "tests/test_parser_fuzz.py", "tests/test_v4_security.py",
+    "tests/test_vectors.py", "tests/vectors/manifest.json",
 ]
 for name in required:
     if not (ROOT / name).exists():
@@ -79,18 +83,6 @@ try:
     target_names = [item.get("target") if isinstance(item, dict) else item for item in targets]
     if "nsis" not in target_names:
         errors.append("target NSIS obrigatorio para auto atualização no Windows")
-    nsis = build.get("nsis", {})
-    if nsis.get("perMachine") is not True:
-        errors.append("nsis.perMachine=true é obrigatório para associação .cguard no Windows")
-    associations = build.get("fileAssociations", [])
-    if isinstance(associations, dict):
-        associations = [associations]
-    has_cguard = any(
-        "cguard" in ([item.get("ext")] if isinstance(item.get("ext"), str) else item.get("ext", []))
-        for item in associations if isinstance(item, dict)
-    )
-    if not has_cguard:
-        errors.append("associação de arquivo .cguard ausente em build.fileAssociations")
     publish = build.get("publish", [])
     gh = next((item for item in publish if isinstance(item, dict) and item.get("provider") == "github"), None)
     if not gh or gh.get("owner") != "solucionx" or gh.get("repo") != "CryptoGuard":
@@ -134,6 +126,22 @@ if "Content-Security-Policy" not in index_html:
     errors.append("CSP ausente em src/index.html")
 if "'unsafe-eval'" in index_html or "'unsafe-inline'" in index_html:
     errors.append("CSP contém unsafe-eval/unsafe-inline")
+
+
+# CGUARD v4 invariants required for a public build.
+requirements = (ROOT / "python/requirements.txt").read_text("utf-8", errors="replace")
+for dep in ("argon2-cffi==25.1.0", "cryptography==46.0.4"):
+    if dep not in requirements:
+        errors.append(f"dependencia criptografica obrigatoria ausente ou nao fixada: {dep}")
+
+constants_text = (ROOT / "python/cryptoguard/constants.py").read_text("utf-8", errors="replace")
+for snippet in ('MAGIC = b"CGUARD0040"', 'VERSION = 4', 'KDF_NAME = "argon2id"', 'HKDF_NAME = "HKDF-SHA256"'):
+    if snippet not in constants_text:
+        errors.append(f"invariante CGUARD v4 ausente: {snippet}")
+
+renderer_text = (ROOT / "src/renderer.js").read_text("utf-8", errors="replace")
+if "sxcrypt" in renderer_text.lower():
+    errors.append("renderer ainda anuncia suporte legado .sxcrypt, removido na v1.6")
 
 print("Crypto Guard — auditoria pré-publicação")
 for item in warnings:

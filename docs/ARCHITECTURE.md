@@ -1,38 +1,38 @@
-# Arquitetura
+# Arquitetura — Crypto Guard 1.6
 
-## Visão geral
+## Processos
 
 ```text
-Renderer (HTML/CSS/JS)
-        │ IPC limitado via preload
-        ▼
+Renderer Electron
+    │ API mínima via preload
+    ▼
 Electron Main
-        │ stdin/stdout JSON
-        ▼
-Crypto Engine (Python empacotado)
-        │
-        ├─ AES-256-GCM
-        ├─ Scrypt
-        ├─ streaming
-        └─ contêiner .cguard
+    │ JSON por stdin/stdout
+    ▼
+bridge.py
+    │
+    ▼
+cryptoguard.engine
+    ├─ format_v4 / strict_json
+    ├─ kdf (Argon2id + HKDF-SHA-256)
+    ├─ container_v4 (AES-256-GCM por chunk)
+    ├─ secure_delete (modo extremo best-effort, pós-verificação)
+    ├─ archive (pastas)
+    └─ io_utils / memory / errors
 ```
 
-## Fronteiras de confiança
+O renderer não possui acesso direto ao Node. O processo principal valida ações e caminhos, cria o subprocesso do motor e transmite senha pelo `stdin`, evitando colocá-la na linha de comando.
 
-- O renderer não recebe acesso direto ao Node.js.
-- `contextIsolation` e `sandbox` permanecem ativos.
-- A senha não é enviada por argumento de linha de comando.
-- O engine valida cabeçalhos, caminhos, ZIPs e parâmetros KDF antes de operar.
-- O original só é removido depois da criação e verificação do contêiner no modo normal.
+## Fronteiras de segurança
 
-## Distribuição
+A UI é código não privilegiado em sandbox. O `preload` expõe apenas operações necessárias. Navegação externa, criação de novas janelas e permissões do Chromium são bloqueadas pelo `main.js` salvo exceções explícitas do aplicativo.
 
-O usuário baixa `CryptoGuard-Setup.exe` e instala o aplicativo por usuário através do NSIS. O engine Python permanece incorporado nos recursos do aplicativo.
+O motor Python trata todo `.cguard` como input hostil. Parsing barato e limites estruturais ocorrem antes de Argon2id. O arquivo final é criado transacionalmente.
 
-O processo principal também contém o módulo de atualização. Ele consulta apenas a origem de update configurada no build (`solucionx/CryptoGuard`) e não recebe tokens ou URLs de atualização do renderer.
+## Cancelamento
 
-## Repositório público e supply chain
+O processo Electron cria um arquivo-sinal temporário. O callback de progresso do bridge verifica o sinal entre etapas/chunks e lança `CryptoCancelled`. Caminhos temporários são removidos pelos blocos `finally` do motor.
 
-A segurança não depende de esconder o código. O repositório público não contém chaves privadas. Actions oficiais usadas pelo CI são fixadas em commits SHA completos, workflows recebem permissões mínimas e releases são geradas por runner Windows a partir de tags versionadas. A proveniência do build é atestada no GitHub.
+## Atualizações
 
-O updater da v1.5.1 usa o fluxo NSIS suportado pelo `electron-updater`, com metadata/hashes da Release, bloqueio de downgrade e instalação apenas fora de operações criptográficas. Limites e próximas camadas estão em `UPDATE_SECURITY.md`.
+O updater permanece separado do motor criptográfico. A instalação de uma atualização baixada só ocorre quando não existem jobs criptográficos ativos. Consulte `UPDATE_SECURITY.md`.

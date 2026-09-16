@@ -1,0 +1,38 @@
+{
+  "format": "CGUARD v4",
+  "password": "CryptoGuard-Vector-Password!",
+  "vectors": [
+    {
+      "file": "v4-empty.cguard",
+      "original_name": "empty.bin",
+      "plaintext_size": 0,
+      "chunk_count": 1,
+      "container_sha256": "c50cd04a85c5c6c16ccea85b0ae61a965106923971fb07241b4847008abc189b",
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "v4-one-byte.cguard",
+      "original_name": "one-byte.bin",
+      "plaintext_size": 1,
+      "chunk_count": 1,
+      "container_sha256": "46a3f5a82b0d9648ff34adc217c58e8bf174fd6d175d00c247adf2e46bf9f34f",
+      "plaintext_sha256": "4b68ab3847feda7d6c62c1fbcbeebfa35eab7351ed5e78f4ddadea5df64b8015"
+    },
+    {
+      "file": "v4-one-chunk.cguard",
+      "original_name": "one-chunk.txt",
+      "plaintext_size": 4600,
+      "chunk_count": 1,
+      "container_sha256": "956d76c859e5152be1102d775cbbfb62f2389e363315b6bd7905532bfd7eeaeb",
+      "plaintext_sha256": "007234ae8c00bba8ace127f1c8a06e7a3c35d6e530b935325b1061f0b9af7e6a"
+    },
+    {
+      "file": "v4-multi-chunk.cguard",
+      "original_name": "multi.bin",
+      "plaintext_size": 153600,
+      "chunk_count": 3,
+      "container_sha256": "c0d29bd8cd1dbbba011cfbd6c41c6ff46c299b26ddb84d72b90eeef9ef7895ac",
+      "plaintext_sha256": "41dae6b28c30ab57faaf5c4707cb4bcda0dcff3057a394447eaad9a67d06ad82"
+    }
+  ]
+}

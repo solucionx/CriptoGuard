@@ -61,8 +61,8 @@ function setProgress(fraction) {
 }
 
 const STAGE_LABELS = {
-  pack: 'Preparando pasta', encrypt: 'Criptografando', verify: 'Verificando integridade',
-  decrypt: 'Descriptografando', extract: 'Restaurando pasta', shred: 'Sobrescrevendo original', done: 'Finalizando'
+  kdf: 'Derivando chave com Argon2id', pack: 'Preparando pasta', pack_verify: 'Validando pacote da pasta', encrypt: 'Criptografando chunks', verify: 'Verificando round-trip',
+  decrypt: 'Descriptografando chunks', extract: 'Restaurando pasta', shred: 'Sobrescrevendo original', done: 'Finalizando'
 };
 
 function beginOperation(action, count, cancellable) {
@@ -80,7 +80,7 @@ function beginOperation(action, count, cancellable) {
   $('cancelOperation').textContent = cancellable ? 'Cancelar com segurança' : 'Cancelamento indisponível';
   $('cancelHint').textContent = cancellable
     ? 'O cancelamento é cooperativo e remove resultados temporários antes de encerrar.'
-    : 'No modo extremo, o cancelamento é desativado para evitar interromper uma sobrescrita em-loco.';
+    : 'No modo extremo, o cancelamento fica desativado para não interromper uma sobrescrita destrutiva.';
 }
 
 function endOperation() {
@@ -273,29 +273,13 @@ function addEncryptItems(infos) {
 }
 function wireEncryptRemoval() { renderSelectionList('encryptList', encryptItems, (idx) => { encryptItems.splice(idx, 1); wireEncryptRemoval(); }); }
 
-function isEncryptedName(name) { return /\.(cguard|sxcrypt)$/i.test(String(name || '')); }
+function isEncryptedName(name) { return /\.cguard$/i.test(String(name || '')); }
 function addDecryptItems(infos) {
   const existing = new Set(decryptItems.map((i) => i.path));
   for (const info of infos || []) if (info?.path && isEncryptedName(info.name) && !existing.has(info.path)) { decryptItems.push(info); existing.add(info.path); }
   wireDecryptRemoval();
 }
 function wireDecryptRemoval() { renderSelectionList('decryptList', decryptItems, (idx) => { decryptItems.splice(idx, 1); wireDecryptRemoval(); }); }
-
-
-window.cryptoGuard.onOpenProtectedFiles(async (paths) => {
-  const safePaths = Array.isArray(paths) ? paths.filter((p) => typeof p === 'string').slice(0, 100) : [];
-  if (!safePaths.length) return;
-  try {
-    const infos = await window.cryptoGuard.pathsInfo(safePaths);
-    addDecryptItems(infos);
-    navigateTo('decrypt');
-    const first = infos?.[0]?.name || baseName(safePaths[0]);
-    showToast('Arquivo protegido aberto', `${first} está pronto para descriptografar. Digite a senha para continuar.`, 'success');
-    setTimeout(() => $('decPassword')?.focus(), 80);
-  } catch (err) {
-    showToast('Não foi possível abrir o arquivo', err?.message || 'O arquivo protegido não pôde ser carregado.', 'error');
-  }
-});
 
 $('pickFiles').onclick = async () => addEncryptItems(await window.cryptoGuard.pickFiles());
 $('pickFolder').onclick = async () => { const info = await window.cryptoGuard.pickFolder(); if (info) addEncryptItems([info]); };
@@ -374,11 +358,14 @@ $('encryptBtn').onclick = async () => {
   if (!encryptItems.length) return showToast('Selecione um item', 'Escolha ao menos um arquivo ou pasta primeiro.', 'error');
   if (!password) return showToast('Senha obrigatória', 'Digite a senha desejada.', 'error');
   if (password !== confirm) return showToast('Senhas diferentes', 'A confirmação não corresponde à senha.', 'error');
-  if (password.length < 8) return showToast('Senha muito curta', 'Use pelo menos 8 caracteres; 12 ou mais é recomendado.', 'error');
+  if (password.length < 12) return showToast('Senha muito curta', 'Use pelo menos 12 caracteres.', 'error');
   if (advancedMode && keepOriginal) return showToast('Combinação inválida', 'Desmarque “Manter o original” para usar o modo extremo.', 'error');
 
   if (advancedMode) {
-    const ok = await confirmAction('Ativar modo extremo?', 'Esse modo pode reescrever o arquivo em-loco. Se houver queda de energia ou encerramento forçado durante a sobrescrita, os dados podem se tornar irrecuperáveis. Em SSDs, múltiplas passadas não garantem apagamento físico completo.');
+    const ok = await confirmAction(
+      'Ativar modo extremo?',
+      `O contêiner CGUARD v4 será criado e verificado primeiro. Depois, o original será sobrescrito ${shredPasses} vez(es) antes de ser removido. Essa sobrescrita é best-effort e NÃO garante eliminação física em SSD/NVMe, snapshots, backups ou armazenamento sincronizado. Durante essa operação, o cancelamento ficará indisponível.`
+    );
     if (!ok) return;
   }
 
@@ -416,7 +403,7 @@ $('encryptBtn').onclick = async () => {
 $('decryptBtn').onclick = async () => {
   const password = $('decPassword').value;
   const keepEncrypted = $('keepEncrypted').checked;
-  if (!decryptItems.length) return showToast('Selecione o arquivo', 'Escolha ao menos um arquivo .cguard ou .sxcrypt.', 'error');
+  if (!decryptItems.length) return showToast('Selecione o arquivo', 'Escolha ao menos um arquivo .cguard v4.', 'error');
   if (!password) return showToast('Senha obrigatória', 'Digite a senha usada na criptografia.', 'error');
   const paths = decryptItems.map((i) => i.path);
   try {
@@ -454,23 +441,22 @@ function applyTheme(theme) {
   $('themeDark').classList.toggle('active', theme === 'dark');
   $('themeLight').classList.toggle('active', theme === 'light');
 }
-$('themeDark').onclick = () => {
-  applyTheme('dark');
-  localStorage.setItem('cryptoGuardTheme', 'dark');
-  showToast('Tema atualizado', 'O modo escuro foi aplicado ao Crypto Guard.', 'success');
-};
-$('themeLight').onclick = () => {
-  applyTheme('light');
-  localStorage.setItem('cryptoGuardTheme', 'light');
-  showToast('Tema atualizado', 'O modo claro foi aplicado ao Crypto Guard.', 'success');
+$('themeDark').onclick = () => { applyTheme('dark'); localStorage.setItem('cryptoGuardTheme', 'dark'); };
+$('themeLight').onclick = () => { applyTheme('light'); localStorage.setItem('cryptoGuardTheme', 'light'); };
+$('accent').oninput = (e) => { document.documentElement.style.setProperty('--accent', e.target.value); localStorage.setItem('cryptoGuardAccent', e.target.value); };
+$('radius').oninput = (e) => { document.documentElement.style.setProperty('--radius', `${e.target.value}px`); localStorage.setItem('cryptoGuardRadius', e.target.value); };
+$('density').onchange = (e) => { document.body.classList.toggle('compact', e.target.value === 'compact'); localStorage.setItem('cryptoGuardDensity', e.target.value); };
+$('resetAppearance').onclick = () => {
+  applyTheme('light'); $('accent').value = '#006496'; $('radius').value = '12'; $('density').value = 'comfortable';
+  document.documentElement.style.setProperty('--accent', '#006496'); document.documentElement.style.setProperty('--radius', '12px'); document.body.classList.remove('compact');
+  localStorage.setItem('cryptoGuardTheme', 'light'); localStorage.setItem('cryptoGuardAccent', '#006496'); localStorage.setItem('cryptoGuardRadius', '12'); localStorage.setItem('cryptoGuardDensity', 'comfortable');
+  showToast('Identidade restaurada', 'A paleta oficial do Crypto Guard foi aplicada.', 'success');
 };
 
-const savedTheme = localStorage.getItem('cryptoGuardTheme') || 'light';
-applyTheme(savedTheme);
-['cryptoGuardAccent', 'cryptoGuardRadius', 'cryptoGuardDensity'].forEach((key) => localStorage.removeItem(key));
-document.body.classList.remove('compact');
-document.documentElement.style.setProperty('--accent', '#006496');
-document.documentElement.style.setProperty('--radius', '12px');
+const savedTheme = localStorage.getItem('cryptoGuardTheme') || 'light'; applyTheme(savedTheme);
+const savedAccent = localStorage.getItem('cryptoGuardAccent') || '#006496'; $('accent').value = savedAccent; document.documentElement.style.setProperty('--accent', savedAccent);
+const savedRadius = localStorage.getItem('cryptoGuardRadius') || '12'; $('radius').value = savedRadius; document.documentElement.style.setProperty('--radius', `${savedRadius}px`);
+const savedDensity = localStorage.getItem('cryptoGuardDensity') || 'comfortable'; $('density').value = savedDensity; document.body.classList.toggle('compact', savedDensity === 'compact');
 
 
 function formatUpdateProgress(data) {

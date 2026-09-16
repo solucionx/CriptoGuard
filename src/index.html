@@ -22,7 +22,7 @@
       <button class="nav" data-view="settings"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.5 1A7 7 0 0 0 14.8 6L14.5 3h-5L9.2 6a7 7 0 0 0-1.6 1.1l-2.5-1-2 3.4L5.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.5-1A7 7 0 0 0 9.2 18l.3 3h5l.3-3a7 7 0 0 0 1.6-1.1l2.5 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg></span><span>Aparência</span></button>
       <button class="nav" data-view="about"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg></span><span>Sobre</span></button>
       <div class="sidebar-foot">
-        <div class="foot-badge"><span class="dot"></span>AES-256-GCM · Scrypt</div>
+        <div class="foot-badge"><span class="dot"></span>AES-256-GCM · Argon2id · v4</div>
         <span id="privilegeStatus" class="privilege-status">Modo padrão</span>
         <span>Your files. Your privacy. Your control.</span>
         <span class="developer-credit">Desenvolvido pela <strong>Solucionx</strong></span>
@@ -67,14 +67,17 @@
           <div class="adv-security">
             <label class="checkbox-row adv-toggle"><input type="checkbox" id="advancedMode" /><span>Modo extremo: sobrescrever dados antes de excluir</span></label>
             <div id="advancedDetails" class="adv-details" hidden>
-              <p>Para arquivos de até 256 MB, o conteúdo pode ser reescrito em-loco. Esse modo reduz a chance de recuperação em discos magnéticos, mas <strong>não garante apagamento físico em SSDs</strong> e aumenta o risco em caso de interrupção.</p>
+              <p>Depois que o <code>.cguard</code> v4 passar pela verificação completa, o Crypto Guard sobrescreve best-effort o conteúdo original antes de remover a entrada do arquivo. Isso pode dificultar recuperação em discos magnéticos, mas <strong>não garante eliminação física em SSD/NVMe</strong>, snapshots, backups, journaling ou armazenamento sincronizado.</p>
               <label class="adv-passes">Passadas de sobrescrita
-                <select id="shredPasses"><option value="1">1</option><option value="2" selected>2 (recomendado)</option><option value="3">3</option><option value="7">7</option></select>
+                <select id="shredPasses"><option value="1">1</option><option value="2" selected>2 (padrão)</option><option value="3">3</option><option value="7">7</option></select>
               </label>
+              <p class="adv-warning">Durante o modo extremo, o cancelamento fica indisponível para evitar interrupção depois que a sobrescrita começar.</p>
             </div>
           </div>
 
-          <div class="hint">Recomendado: 12+ caracteres. A senha não é armazenada e não existe chave mestra de recuperação.</div>
+          <div class="security-inline">CGUARD v4 · Argon2id · chunks autenticados · round-trip antes de qualquer remoção do original</div>
+
+          <div class="hint">Mínimo: 12 caracteres. A senha não é armazenada e não existe chave mestra de recuperação.</div>
           <button id="encryptBtn" class="primary">Criptografar agora</button>
         </div>
       </section>
@@ -83,12 +86,12 @@
         <header>
           <p class="eyebrow">RESTAURAR</p>
           <h1>Descriptografar conteúdo</h1>
-          <p>Abra arquivos <code>.cguard</code>. Contêineres legados <code>.sxcrypt</code> também continuam compatíveis.</p>
+          <p>Abra contêineres <code>.cguard</code> no formato CGUARD v4. Formatos antigos não são aceitos nesta versão.</p>
         </header>
         <div class="card">
           <div id="decDropZone" class="dropzone">
             <div class="dropzone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7-2.6"/></svg></div>
-            <p class="dropzone-title">Arraste arquivos .cguard ou .sxcrypt aqui</p>
+            <p class="dropzone-title">Arraste arquivos .cguard aqui</p>
             <p class="dropzone-sub">ou selecione manualmente</p>
             <div class="picker-actions single"><button id="pickEncrypted" type="button" class="secondary wide">Selecionar arquivos protegidos</button></div>
           </div>
@@ -109,26 +112,19 @@
       </section>
 
       <section id="settings" class="view">
-        <header><p class="eyebrow">PERSONALIZAR</p><h1>Aparência</h1><p>Escolha entre tema claro e escuro. A identidade visual do Crypto Guard permanece consistente em ambos.</p></header>
-        <div class="card settings-grid settings-simple">
-          <div class="theme-section">
-            <label class="setting-label">Tema do aplicativo</label>
-            <p class="setting-help">A escolha é salva automaticamente e aplicada em todas as telas do aplicativo.</p>
-            <div class="theme-toggle theme-toggle-large">
-              <button type="button" id="themeDark" class="theme-btn theme-choice">
-                <span class="theme-choice-title">Escuro</span>
-                <span class="theme-choice-sub">Foco, contraste e visual técnico</span>
-              </button>
-              <button type="button" id="themeLight" class="theme-btn theme-choice active">
-                <span class="theme-choice-title">Claro</span>
-                <span class="theme-choice-sub">Leitura suave e interface limpa</span>
-              </button>
+        <header><p class="eyebrow">PERSONALIZAR</p><h1>Aparência</h1><p>A identidade padrão segue a paleta oficial do Crypto Guard, mas você ainda pode personalizar a interface.</p></header>
+        <div class="card settings-grid">
+          <div>
+            <label class="setting-label">Paleta oficial</label>
+            <div class="brand-swatches">
+              <span title="#012659" style="--swatch:#012659"></span><span title="#003061" style="--swatch:#003061"></span><span title="#004676" style="--swatch:#004676"></span><span title="#006496" style="--swatch:#006496"></span><span title="#C5D0D7" style="--swatch:#C5D0D7"></span><span title="#DEEBEE" style="--swatch:#DEEBEE"></span>
             </div>
           </div>
-          <div class="appearance-note">
-            <strong>Identidade visual protegida</strong>
-            <p>Para manter o Crypto Guard consistente e profissional, a paleta de cores e a estrutura visual são fixas. Apenas o tema é personalizável.</p>
-          </div>
+          <label>Tema<div class="theme-toggle"><button type="button" id="themeDark" class="theme-btn">Escuro</button><button type="button" id="themeLight" class="theme-btn active">Claro</button></div></label>
+          <label>Cor de destaque<input id="accent" type="color" value="#006496" /></label>
+          <label>Arredondamento<input id="radius" type="range" min="6" max="24" value="12" /></label>
+          <label>Densidade<select id="density"><option value="comfortable">Confortável</option><option value="compact">Compacta</option></select></label>
+          <button id="resetAppearance" type="button" class="secondary">Restaurar identidade Crypto Guard</button>
         </div>
       </section>
 
@@ -136,18 +132,7 @@
         <header><p class="eyebrow">CRYPTO GUARD</p><h1>Secure files. Stronger futures.</h1><p>Aplicativo desktop para criptografar e descriptografar arquivos e pastas localmente.</p></header>
         <div class="card about-card">
           <img src="assets/logo.png" class="about-logo" alt="Crypto Guard" />
-          <div class="about-content">
-            <h2>Crypto Guard</h2>
-            <p class="about-sub">Encrypt / Decrypt Software</p>
-            <div class="about-meta">
-              <div class="about-meta-row"><span class="about-meta-label">Versão</span><strong id="appVersion">—</strong></div>
-              <div class="about-meta-row"><span class="about-meta-label">Atualizações</span><span id="updateStatus" class="update-status">Verificação automática ao iniciar</span></div>
-            </div>
-            <button id="checkUpdates" type="button" class="secondary about-update-button">Verificar atualização agora</button>
-            <p class="solucionx-credit">Desenvolvido pela <strong>Solucionx</strong></p>
-            <p class="about-description">AES-256-GCM para confidencialidade e autenticação, com Scrypt para derivação de chave. O conteúdo não é enviado para a nuvem.</p>
-            <div class="about-badges"><span>Processamento local</span><span>AES-256-GCM</span><span>Scrypt</span><span>Atualização automática</span></div>
-          </div>
+          <div><h2>Crypto Guard</h2><p class="about-sub">Encrypt / Decrypt Software</p><p><strong>Versão:</strong> <span id="appVersion">—</span></p><p><strong>Atualizações:</strong> <span id="updateStatus">Verificação automática ao iniciar</span></p><button id="checkUpdates" type="button" class="secondary action-top">Verificar atualização agora</button><p class="solucionx-credit">Desenvolvido pela <strong>Solucionx</strong></p><p>CGUARD v4 usa AES-256-GCM em chunks autenticados, Argon2id e HKDF-SHA-256. Metadados sensíveis ficam cifrados e o conteúdo não é enviado para a nuvem.</p><div class="about-badges"><span>Local-first</span><span>CGUARD v4</span><span>Argon2id</span><span>AES-256-GCM</span><span>Auto-update</span></div></div>
         </div>
       </section>
     </main>
@@ -177,7 +162,7 @@
     </div>
   </dialog>
 
-  <dialog id="welcomeDialog" class="modal welcome-modal"><div class="welcome-brand"><img src="assets/logo.png" alt="Crypto Guard" /><div><strong>CRYPTO GUARD</strong><span>Encrypt / Decrypt Software</span></div></div><h2>Bem-vindo ao Crypto Guard</h2><p class="welcome-developer">Desenvolvido pela <strong>Solucionx</strong></p><p>Proteja arquivos localmente com criptografia autenticada. Antes de começar, lembre-se: a senha não é armazenada e não pode ser recuperada.</p><div class="welcome-points"><span>✓ Dados permanecem no computador</span><span>✓ Arquivos grandes processados em streaming</span><span>✓ Compatível com .sxcrypt legado</span></div><button id="finishWelcome" class="primary">Começar</button></dialog>
+  <dialog id="welcomeDialog" class="modal welcome-modal"><div class="welcome-brand"><img src="assets/logo.png" alt="Crypto Guard" /><div><strong>CRYPTO GUARD</strong><span>Encrypt / Decrypt Software</span></div></div><h2>Bem-vindo ao Crypto Guard</h2><p class="welcome-developer">Desenvolvido pela <strong>Solucionx</strong></p><p>Proteja arquivos localmente com criptografia autenticada. Antes de começar, lembre-se: a senha não é armazenada e não pode ser recuperada.</p><div class="welcome-points"><span>✓ Dados permanecem no computador</span><span>✓ Arquivos grandes usam chunks autenticados</span><span>✓ Metadados sensíveis ficam criptografados</span></div><button id="finishWelcome" class="primary">Começar</button></dialog>
 
   <script src="renderer.js"></script>
 </body>

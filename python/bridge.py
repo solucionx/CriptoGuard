@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from crypto_guard import CryptoCancelled, CryptoError, decrypt_path, encrypt_path
+from cryptoguard import CryptoCancelled, CryptoError, decrypt_path, encrypt_path
 
 
 def emit(payload: dict) -> None:
@@ -14,7 +14,6 @@ def emit(payload: dict) -> None:
 
 
 def _permission_details(exc: BaseException) -> tuple[bool, str | None]:
-    """Detecta acesso negado mesmo quando o erro foi encapsulado por CryptoError."""
     seen: set[int] = set()
     current: BaseException | None = exc
     fallback_path: str | None = None
@@ -39,7 +38,6 @@ def _permission_details(exc: BaseException) -> tuple[bool, str | None]:
         )
         if denied:
             return True, fallback_path
-
         current = current.__cause__ or current.__context__
 
     text = str(exc).lower()
@@ -64,20 +62,26 @@ def _emit_error(exc: BaseException, *, prefix: str = "") -> None:
 def main() -> None:
     try:
         request = json.load(sys.stdin)
+        if not isinstance(request, dict):
+            raise CryptoError("Requisição inválida.")
+
         action = request.get("action")
         path = Path(str(request.get("path", "")))
         password = str(request.get("password", ""))
         keep_original = bool(request.get("keep_original", False))
         keep_encrypted = bool(request.get("keep_encrypted", False))
         advanced_mode = bool(request.get("advanced_mode", False))
-        shred_passes = int(request.get("shred_passes", 2) or 2)
+        shred_passes_raw = request.get("shred_passes", 2)
+        if type(shred_passes_raw) is not int:
+            raise CryptoError("Quantidade de passadas inválida.")
+        shred_passes = shred_passes_raw
         allow_cancel = bool(request.get("allow_cancel", True))
         cancel_file_raw = request.get("cancel_file")
         cancel_file = Path(str(cancel_file_raw)) if cancel_file_raw else None
 
         def progress(processed: int, total: int, stage: str) -> None:
             if allow_cancel and cancel_file is not None and cancel_file.exists():
-                raise CryptoCancelled("Operação cancelada pelo usuário. Nenhum resultado parcial foi mantido.")
+                raise CryptoCancelled("Operação cancelada em um ponto seguro. Resultados temporários foram removidos.")
             emit({"type": "progress", "processed": processed, "total": total, "stage": stage})
 
         if action == "encrypt":
@@ -112,7 +116,7 @@ def main() -> None:
             "ok": False,
             "cancelled": True,
             "error_code": "cancelled",
-            "error": "Operação cancelada. O original foi preservado quando a operação ainda não havia sido concluída.",
+            "error": "Operação cancelada. Resultados temporários foram removidos quando possível.",
         })
         sys.exit(130)
     except Exception as exc:

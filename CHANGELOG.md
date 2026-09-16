@@ -1,53 +1,31 @@
 # Changelog
 
-## 1.5.2 — 2026-09-15
+## 1.6.0 — CGUARD v4 / Cryptographic Hardening
 
-- associação do formato `.cguard` ao Crypto Guard no Windows;
-- duplo clique em `.cguard` abre o aplicativo diretamente na tela de descriptografia;
-- arquivo aberto pelo Explorador é carregado automaticamente, mas a senha continua obrigatória;
-- instância única: se o app já estiver aberto, o arquivo é enviado para a janela existente;
-- correção do repositório de atualização para `solucionx/CryptoGuard`;
-- instalador NSIS passa a ser `perMachine` para registrar a associação de arquivos de forma suportada;
-- validações de release reforçadas para impedir build sem associação `.cguard`.
-
-## 1.5.1 — 2026-09-15
-
-- Simplifica Aparência para apenas temas Claro e Escuro.
-- Remove personalização de paleta, cor de destaque, arredondamento e densidade.
-- Reorganiza a tela Sobre e corrige o alinhamento do crédito “Desenvolvido pela Solucionx”.
-- Refina o estado visual de atualização e os rótulos técnicos em português.
-- Mantém o instalador NSIS com branding personalizado e o fluxo de autoatualização via GitHub Releases.
-
+- Novo formato `CGUARD v4`; a v1.6 cria e lê somente v4.
+- KDF migrado de Scrypt para Argon2id (`64 MiB`, 3 iterações, paralelismo 1 por padrão).
+- HKDF-SHA-256 adicionado para separação entre chave de conteúdo e chave de metadados.
+- AES-256-GCM passa a operar em chunks autenticados de 4 MiB, cada um com nonce determinístico e exclusivo por índice.
+- Cabeçalho público ligado ao AAD por SHA-256 e parser com schema estrito.
+- Chaves JSON duplicadas, campos extras, tipos errados e valores fora de limites são rejeitados.
+- Nome original e metadados de pasta deixam de aparecer em claro e passam para bloco de metadados cifrado.
+- Tamanho físico do contêiner validado antes de Argon2id; truncamento e bytes extras são rejeitados.
+- Criptografia transacional com round-trip completo, comparação byte a byte da origem e SHA-256 antes de remover o original.
+- Para pastas, o ZIP temporário é reaberto e comparado à árvore de origem antes da criptografia.
+- Descriptografia transacional; resultados parciais nunca recebem o nome final.
+- Modo extremo preservado em desenho mais seguro: nunca criptografa em-loco; primeiro cria e valida o CGUARD v4 e só então sobrescreve best-effort o original antes de removê-lo. Passadas disponíveis: 1, 2, 3 ou 7; sem garantia de eliminação física em SSD/NVMe.
+- Limpeza best-effort de buffers mutáveis de chave.
+- Compatibilidade `.sxcrypt`/v1-v3 removida do fluxo principal.
+- Suite ampliada com KATs, tamper tests, chunk-order tests, fuzz-smoke e vetores v4 permanentes.
+- UI e documentação atualizadas para CGUARD v4 / Argon2id.
 
 ## 1.5.0 — Auto Update
 
-- Migração da distribuição Windows de portable para instalador NSIS per-user.
+- Migração da distribuição Windows para instalador NSIS.
 - Verificação automática de atualização ao iniciar.
-- Download automático de Releases estáveis pelo `electron-updater`.
-- Bloqueio de pre-release e downgrade.
-- Atualização aguarda operações de criptografia/descriptografia terminarem antes de instalar.
-- Geração de `latest.yml` e `.blockmap` no pipeline.
-- Botão manual “Verificar atualização agora” na tela Sobre.
-- Site deve apontar para `CryptoGuard-Setup.exe` a partir desta versão.
+- Download em segundo plano e instalação somente fora de operações criptográficas ativas.
+- `electron-updater` sem token embutido, sem downgrade e sem pre-release no canal estável.
 
-Todas as alterações relevantes do Crypto Guard serão registradas aqui.
+## 1.4.x
 
-## [1.4.1] - 2026-09-15
-
-### Corrigido
-- Build do engine PyInstaller agora usa caminhos absolutos.
-- Evita resolução incorreta de `engine_version_info.txt` a partir do diretório de spec.
-
-### Mantido
-- Distribuição Windows em um único `CryptoGuard.exe` portátil.
-- Marca Crypto Guard, desenvolvido pela Solucionx.
-- AES-256-GCM + Scrypt, streaming e compatibilidade com `.sxcrypt` legado.
-
-## Unreleased — Public repository hardening
-
-- CodeQL para JavaScript/TypeScript e Python.
-- Dependency Review em Pull Requests.
-- GitHub Actions fixadas por commit SHA nos workflows de segurança/release.
-- Dependências diretas críticas atualizadas.
-- Release com provenance attestation, SHA-256, inventário Python, build-info e SBOM npm.
-
+- Build Windows de executável único, hardening Electron e melhorias de publicação.
