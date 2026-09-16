@@ -7,7 +7,7 @@
   <title>Crypto Guard</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="light-theme">
+<body>
   <div id="progressBar" class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
 
   <div class="shell">
@@ -19,7 +19,6 @@
       <button class="nav active" data-view="encrypt"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span>Criptografar</span></button>
       <button class="nav" data-view="decrypt"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/></svg></span><span>Descriptografar</span></button>
       <button class="nav" data-view="activity"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Atividade recente</span></button>
-      <button class="nav" data-view="settings"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.5 1A7 7 0 0 0 14.8 6L14.5 3h-5L9.2 6a7 7 0 0 0-1.6 1.1l-2.5-1-2 3.4L5.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.5-1A7 7 0 0 0 9.2 18l.3 3h5l.3-3a7 7 0 0 0 1.6-1.1l2.5 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg></span><span>Aparência</span></button>
       <button class="nav" data-view="about"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg></span><span>Sobre</span></button>
       <div class="sidebar-foot">
         <div class="foot-badge"><span class="dot"></span>AES-256-GCM · Argon2id · v4</div>
@@ -109,23 +108,6 @@
       <section id="activity" class="view">
         <header><p class="eyebrow">HISTÓRICO LOCAL</p><h1>Atividade recente</h1><p>As últimas operações ficam registradas apenas neste computador. Senhas não entram no histórico.</p></header>
         <div class="card"><div id="activityList" class="activity-list"><p class="selection-empty-text">Nenhuma atividade ainda.</p></div><button id="clearActivity" class="secondary action-top">Limpar histórico</button></div>
-      </section>
-
-      <section id="settings" class="view">
-        <header><p class="eyebrow">PERSONALIZAR</p><h1>Aparência</h1><p>A identidade padrão segue a paleta oficial do Crypto Guard, mas você ainda pode personalizar a interface.</p></header>
-        <div class="card settings-grid">
-          <div>
-            <label class="setting-label">Paleta oficial</label>
-            <div class="brand-swatches">
-              <span title="#012659" style="--swatch:#012659"></span><span title="#003061" style="--swatch:#003061"></span><span title="#004676" style="--swatch:#004676"></span><span title="#006496" style="--swatch:#006496"></span><span title="#C5D0D7" style="--swatch:#C5D0D7"></span><span title="#DEEBEE" style="--swatch:#DEEBEE"></span>
-            </div>
-          </div>
-          <label>Tema<div class="theme-toggle"><button type="button" id="themeDark" class="theme-btn">Escuro</button><button type="button" id="themeLight" class="theme-btn active">Claro</button></div></label>
-          <label>Cor de destaque<input id="accent" type="color" value="#006496" /></label>
-          <label>Arredondamento<input id="radius" type="range" min="6" max="24" value="12" /></label>
-          <label>Densidade<select id="density"><option value="comfortable">Confortável</option><option value="compact">Compacta</option></select></label>
-          <button id="resetAppearance" type="button" class="secondary">Restaurar identidade Crypto Guard</button>
-        </div>
       </section>
 
       <section id="about" class="view">

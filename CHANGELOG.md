@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.2 — Fixed official interface
+
+- Remove a tela e o item de navegação **Aparência**, que haviam sido reintroduzidos indevidamente.
+- Remove personalização de tema, cor de destaque, arredondamento e densidade; a interface volta a usar a identidade visual oficial fixa do Crypto Guard.
+- Ignora preferências antigas de aparência salvas no `localStorage`, evitando que instalações atualizadas alterem a identidade oficial.
+- Mantém associação `.cguard`, duplo clique direto para **Descriptografar**, Modo Extremo, CGUARD v4, Argon2id, auto-update e correção UTF-8 do workflow.
+- Nenhuma alteração no formato criptográfico CGUARD v4 ou na compatibilidade de contêineres v4.
+
 ## 1.6.1 — Desktop integration / UI restoration
 
 - Restaura a associação do Windows para `.cguard` com nome e ícone do Crypto Guard no Explorer.

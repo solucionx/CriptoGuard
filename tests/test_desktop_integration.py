@@ -31,6 +31,18 @@ class DesktopIntegrationTests(unittest.TestCase):
         main = (ROOT / "src" / "main.js").read_text(encoding="utf-8")
         self.assertIn("isElevatedRelaunch ? true : app.requestSingleInstanceLock()", main)
 
+    def test_appearance_customization_is_removed(self):
+        html = (ROOT / "src" / "index.html").read_text(encoding="utf-8")
+        renderer = (ROOT / "src" / "renderer.js").read_text(encoding="utf-8")
+        self.assertNotIn('data-view="settings"', html)
+        self.assertNotIn('id="settings"', html)
+        self.assertNotIn('id="themeDark"', html)
+        self.assertNotIn('id="accent"', html)
+        self.assertNotIn('cryptoGuardTheme', renderer)
+        self.assertNotIn('cryptoGuardAccent', renderer)
+        self.assertNotIn('resetAppearance', renderer)
+
+
 
 if __name__ == "__main__":
     unittest.main()
