@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.1 — Desktop integration / UI restoration
+
+- Restaura a associação do Windows para `.cguard` com nome e ícone do Crypto Guard no Explorer.
+- Duplo clique em um `.cguard` abre/reutiliza o Crypto Guard, seleciona o arquivo e navega diretamente para **Descriptografar**.
+- Suporte a segunda instância: abrir outro `.cguard` reutiliza a janela existente em vez de iniciar cópia concorrente.
+- Mantém a exceção necessária para o relançamento UAC usado nas operações que exigem elevação.
+- Corrige o alinhamento do status no rodapé da barra lateral.
+- Corrige o espaçamento/alinhamento de “Desenvolvido pela Solucionx” na tela Sobre.
+- Preserva CGUARD v4, Argon2id, HKDF-SHA-256, AES-256-GCM em chunks, Modo Extremo e auto-update.
+- Mantém a correção UTF-8 do workflow de Release para geração do inventário `pip inspect`.
+
 ## 1.6.0 — CGUARD v4 / Cryptographic Hardening
 
 - Novo formato `CGUARD v4`; a v1.6 cria e lê somente v4.

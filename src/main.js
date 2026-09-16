@@ -24,6 +24,80 @@ const activeJobs = new Map();
 let updateReadyToInstall = false;
 let updateInstallScheduled = false;
 let updateCheckInFlight = false;
+let mainWindow = null;
+let rendererReadyForOpenFiles = false;
+const pendingOpenFiles = [];
+const isElevatedRelaunch = process.argv.includes('--crypto-guard-elevated');
+const hasSingleInstanceLock = isElevatedRelaunch ? true : app.requestSingleInstanceLock();
+
+function normalizeCguardPath(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const candidate = path.resolve(value.trim());
+  if (path.extname(candidate).toLowerCase() !== '.cguard') return null;
+  try {
+    if (!fs.statSync(candidate).isFile()) return null;
+  } catch {
+    return null;
+  }
+  return candidate;
+}
+
+function cguardPathsFromArgv(argv) {
+  const seen = new Set();
+  const result = [];
+  for (const arg of Array.isArray(argv) ? argv : []) {
+    const filePath = normalizeCguardPath(arg);
+    if (filePath && !seen.has(filePath.toLowerCase())) {
+      seen.add(filePath.toLowerCase());
+      result.push(filePath);
+    }
+  }
+  return result;
+}
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+}
+
+function queueOpenFiles(paths) {
+  const normalized = [];
+  const queued = new Set(pendingOpenFiles.map((item) => item.toLowerCase()));
+  for (const raw of Array.isArray(paths) ? paths : []) {
+    const filePath = normalizeCguardPath(raw);
+    if (!filePath) continue;
+    const key = filePath.toLowerCase();
+    if (!queued.has(key)) {
+      queued.add(key);
+      normalized.push(filePath);
+    }
+  }
+  if (!normalized.length) return;
+
+  if (rendererReadyForOpenFiles && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('open-cguard-files', normalized.map(statInfo));
+  } else {
+    pendingOpenFiles.push(...normalized);
+  }
+  focusMainWindow();
+}
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else if (!isElevatedRelaunch) {
+  app.on('second-instance', (_event, commandLine) => {
+    queueOpenFiles(cguardPathsFromArgv(commandLine));
+    focusMainWindow();
+  });
+}
+
+// macOS/Finder compatibility; harmless on Windows and keeps the launch path unified.
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  queueOpenFiles([filePath]);
+});
 
 function broadcastUpdateStatus(payload) {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -116,6 +190,7 @@ function configureAutoUpdater() {
 }
 
 function createWindow() {
+  rendererReadyForOpenFiles = false;
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -143,6 +218,13 @@ function createWindow() {
       if (parsed.protocol !== 'file:') event.preventDefault();
     } catch {
       event.preventDefault();
+    }
+  });
+  mainWindow = win;
+  win.on('closed', () => {
+    if (mainWindow === win) {
+      mainWindow = null;
+      rendererReadyForOpenFiles = false;
     }
   });
   win.loadFile(path.join(__dirname, 'index.html'));
@@ -383,6 +465,14 @@ ipcMain.handle('pick-encrypted-files', async () => {
   return canceled ? [] : filePaths.map(statInfo);
 });
 ipcMain.handle('paths-info', async (_event, paths) => Array.isArray(paths) ? paths.slice(0, 500).map(statInfo) : []);
+ipcMain.handle('consume-open-files', async (event) => {
+  rendererReadyForOpenFiles = true;
+  if (mainWindow && event.sender === mainWindow.webContents) {
+    const files = pendingOpenFiles.splice(0, pendingOpenFiles.length);
+    return files.map(statInfo);
+  }
+  return [];
+});
 ipcMain.handle('app-info', async () => ({ version: app.getVersion(), platform: process.platform, elevated: isProcessElevated(), packaged: app.isPackaged, developer: DEVELOPER, autoUpdate: updaterSupported() }));
 ipcMain.handle('update-check', async () => checkForUpdates());
 ipcMain.handle('request-elevation', async () => launchElevatedCopy());
@@ -472,6 +562,8 @@ ipcMain.handle('crypto-run', async (event, payload) => {
 });
 
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
+  queueOpenFiles(cguardPathsFromArgv(process.argv));
   // O renderer não precisa de câmera, microfone, geolocalização, MIDI etc.
   // Nega permissões web por padrão para reduzir a superfície de ataque.
   electronSession.defaultSession.setPermissionCheckHandler(() => false);

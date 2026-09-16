@@ -281,6 +281,21 @@ function addDecryptItems(infos) {
 }
 function wireDecryptRemoval() { renderSelectionList('decryptList', decryptItems, (idx) => { decryptItems.splice(idx, 1); wireDecryptRemoval(); }); }
 
+function handleExternalEncryptedFiles(infos) {
+  const valid = Array.isArray(infos) ? infos.filter((item) => item?.path && isEncryptedName(item.name || item.path)) : [];
+  if (!valid.length) return;
+  addDecryptItems(valid);
+  navigateTo('decrypt');
+  requestAnimationFrame(() => {
+    if ($('decPassword') && !$('welcomeDialog')?.open) $('decPassword').focus();
+  });
+  showToast(
+    'Arquivo Crypto Guard aberto',
+    valid.length === 1 ? `${valid[0].name || baseName(valid[0].path)} pronto para descriptografar.` : `${valid.length} arquivos .cguard prontos para descriptografar.`,
+    'success'
+  );
+}
+
 $('pickFiles').onclick = async () => addEncryptItems(await window.cryptoGuard.pickFiles());
 $('pickFolder').onclick = async () => { const info = await window.cryptoGuard.pickFolder(); if (info) addEncryptItems([info]); };
 $('pickEncrypted').onclick = async () => addDecryptItems(await window.cryptoGuard.pickEncryptedFiles());
@@ -544,5 +559,8 @@ async function restorePendingElevationSelection() {
 }
 restorePendingElevationSelection();
 
+window.cryptoGuard.onOpenEncryptedFiles(handleExternalEncryptedFiles);
+window.cryptoGuard.consumeOpenFiles().then(handleExternalEncryptedFiles).catch(() => {});
+
 if (!localStorage.getItem('cryptoGuardOnboardingDone')) $('welcomeDialog').showModal();
-$('finishWelcome').onclick = () => { localStorage.setItem('cryptoGuardOnboardingDone', '1'); $('welcomeDialog').close(); };
+$('finishWelcome').onclick = () => { localStorage.setItem('cryptoGuardOnboardingDone', '1'); $('welcomeDialog').close(); if (decryptItems.length) { navigateTo('decrypt'); $('decPassword')?.focus(); } };

@@ -18,8 +18,8 @@ A tag precisa corresponder exatamente à versão do `package.json`:
 ```powershell
 git checkout main
 git pull --ff-only
-git tag -s v1.6.0 -m "Crypto Guard v1.6.0"
-git push origin v1.6.0
+git tag -s v1.6.1 -m "Crypto Guard v1.6.1"
+git push origin v1.6.1
 ```
 
 Se você ainda não usa assinatura GPG/SSH de tags, configure-a antes da primeira release pública quando possível. Nunca mova uma tag já publicada.

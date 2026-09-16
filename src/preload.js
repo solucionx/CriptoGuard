@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('cryptoGuard', {
   getAppInfo: () => ipcRenderer.invoke('app-info'),
   checkForUpdates: () => ipcRenderer.invoke('update-check'),
   requestElevation: () => ipcRenderer.invoke('request-elevation'),
+  consumeOpenFiles: () => ipcRenderer.invoke('consume-open-files'),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => {
     const listener = (_event, data) => callback(data);
@@ -20,5 +21,10 @@ contextBridge.exposeInMainWorld('cryptoGuard', {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('update-status', listener);
     return () => ipcRenderer.removeListener('update-status', listener);
+  },
+  onOpenEncryptedFiles: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('open-cguard-files', listener);
+    return () => ipcRenderer.removeListener('open-cguard-files', listener);
   }
 });

@@ -22,7 +22,7 @@ if ($env:OS -ne "Windows_NT") {
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor DarkBlue
-Write-Host " Crypto Guard 1.6.0 - Build Auto Update" -ForegroundColor Blue
+Write-Host " Crypto Guard 1.6.1 - Build Auto Update" -ForegroundColor Blue
 Write-Host " Desenvolvido pela Solucionx" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor DarkBlue
 Write-Host ""
